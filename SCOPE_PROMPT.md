@@ -1,0 +1,1 @@
+You are setting up a scope file for a bug bounty. The scope is already in data/scope.json. Your job is to use the etherscan mcp and to look at the actual code of each address. For every address that is a proxy find the slot where the implementation is stored and write it in the "updateSlot" field for the address. If an address is no proxy just leave the field null.

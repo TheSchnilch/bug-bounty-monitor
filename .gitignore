@@ -1,0 +1,6 @@
+.env
+__pycache__/
+data/**
+!data/**/
+!data/**/scope.json
+data/**/project/

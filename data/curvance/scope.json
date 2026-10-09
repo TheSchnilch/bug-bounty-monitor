@@ -1,0 +1,805 @@
+{
+  "program": "curvance",
+  "source": "manual",
+  "chain": "monad",
+  "assets": [
+    {
+      "name": "MarketManagerIsolated - WMON | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x05e70717fA8BD0F21a9F826d093d99f6Da4f1554",
+      "address": "0x05e70717fA8BD0F21a9F826d093d99f6Da4f1554",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WMON | AUSD cWMON",
+      "url": "https://monadscan.com/address/0xE01d426B589c7834a5F6B20D7e992A705d3c22ED",
+      "address": "0xE01d426B589c7834a5F6B20D7e992A705d3c22ED",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WMON | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0x6E182EB501800C555bd5E662E6D350D627F504D8",
+      "address": "0x6E182EB501800C555bd5E662E6D350D627F504D8",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WMON | AUSD cWMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0xc17A271F79ac4449FaABeAf64E805BEE37B78DBd",
+      "address": "0xc17A271F79ac4449FaABeAf64E805BEE37B78DBd",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WMON | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x72cb6a15E050427e1a6047614A47659A2C94d1bA",
+      "address": "0x72cb6a15E050427e1a6047614A47659A2C94d1bA",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - WMON | AUSD SimplePositionManager",
+      "url": "https://monadscan.com/address/0x2619BB5Acfe51317c4C36a63578FD56148e68C74",
+      "address": "0x2619BB5Acfe51317c4C36a63578FD56148e68C74",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - WMON | USDC MarketManager",
+      "url": "https://monadscan.com/address/0xa6A2A92F126b79Ee0804845ee6B52899b4491093",
+      "address": "0xa6A2A92F126b79Ee0804845ee6B52899b4491093",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WMON | USDC cWMON",
+      "url": "https://monadscan.com/address/0x1e240E30E51491546deC3aF16B0b4EAC8Dd110D4",
+      "address": "0x1e240E30E51491546deC3aF16B0b4EAC8Dd110D4",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WMON | USDC cUSDC",
+      "url": "https://monadscan.com/address/0x8EE9FC28B8Da872c38A496e9dDB9700bb7261774",
+      "address": "0x8EE9FC28B8Da872c38A496e9dDB9700bb7261774",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WMON | USDC cWMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0x50264B615175f8DBFFF417CF6D0003D2e77D87B4",
+      "address": "0x50264B615175f8DBFFF417CF6D0003D2e77D87B4",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WMON | USDC cUSDC Dynamic IRM",
+      "url": "https://monadscan.com/address/0x1622D77E311638C77779e6D9B212E3e7D73AaFB4",
+      "address": "0x1622D77E311638C77779e6D9B212E3e7D73AaFB4",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - WMON | USDC SimplePositionManager",
+      "url": "https://monadscan.com/address/0x960c49E523e6A87282D2bC5032d0AeCb35Dc20ef",
+      "address": "0x960c49E523e6A87282D2bC5032d0AeCb35Dc20ef",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - WBTC | USDC MarketManager",
+      "url": "https://monadscan.com/address/0x01C4a0d396EFE982B1B103BE9910321d34e1aEA9",
+      "address": "0x01C4a0d396EFE982B1B103BE9910321d34e1aEA9",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WBTC | USDC cWBTC",
+      "url": "https://monadscan.com/address/0x3D2Ff9F862D89Ba526a0fC166bD56ABe04EF28d5",
+      "address": "0x3D2Ff9F862D89Ba526a0fC166bD56ABe04EF28d5",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WBTC | USDC cUSDC",
+      "url": "https://monadscan.com/address/0x7C9d4f1695C6282Da5e5509Aa51fC9fb417C6f1d",
+      "address": "0x7C9d4f1695C6282Da5e5509Aa51fC9fb417C6f1d",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WBTC | USDC cWBTC Dynamic IRM",
+      "url": "https://monadscan.com/address/0x8a78Bd450258B7B1D42431fB904453cA43161AdE",
+      "address": "0x8a78Bd450258B7B1D42431fB904453cA43161AdE",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WBTC | USDC cUSDC Dynamic IRM",
+      "url": "https://monadscan.com/address/0x9F57957F2CA8d0DB433e4623f8bd248293b01e86",
+      "address": "0x9F57957F2CA8d0DB433e4623f8bd248293b01e86",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - WBTC | USDC SimplePositionManager",
+      "url": "https://monadscan.com/address/0x8cA51d155C07e91B206Cf11C8D52d5aB082657F6",
+      "address": "0x8cA51d155C07e91B206Cf11C8D52d5aB082657F6",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - WETH | USDC MarketManager",
+      "url": "https://monadscan.com/address/0xb3E9E0134354cc91b7FB9F9d6C3ab0dE7854BB49",
+      "address": "0xb3E9E0134354cc91b7FB9F9d6C3ab0dE7854BB49",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WETH | USDC cWETH",
+      "url": "https://monadscan.com/address/0x8Af00fbbb2601A8F7636EabbF6243B30BEA47D50",
+      "address": "0x8Af00fbbb2601A8F7636EabbF6243B30BEA47D50",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - WETH | USDC cUSDC",
+      "url": "https://monadscan.com/address/0x21aDBb60a5fB909e7F1fB48aACC4569615CD97b5",
+      "address": "0x21aDBb60a5fB909e7F1fB48aACC4569615CD97b5",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WETH | USDC cWETH Dynamic IRM",
+      "url": "https://monadscan.com/address/0x8c82ccF6Ee43346425E04325Df03219cf46a7739",
+      "address": "0x8c82ccF6Ee43346425E04325Df03219cf46a7739",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - WETH | USDC cUSDC Dynamic IRM",
+      "url": "https://monadscan.com/address/0x034f1a014946Fe4d4ea3bD36A315F775a8C1aB26",
+      "address": "0x034f1a014946Fe4d4ea3bD36A315F775a8C1aB26",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - WETH | USDC SimplePositionManager",
+      "url": "https://monadscan.com/address/0x3A1B2Dc11a81Fe106eC667BaB4056fC72498ff73",
+      "address": "0x3A1B2Dc11a81Fe106eC667BaB4056fC72498ff73",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - ezETH | WETH MarketManager",
+      "url": "https://monadscan.com/address/0x83840d837E7A3E00bBb0B8501E60E989A8987c37",
+      "address": "0x83840d837E7A3E00bBb0B8501E60E989A8987c37",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - ezETH | WETH cezETH",
+      "url": "https://monadscan.com/address/0x20f1A13BfbF85a22Aa59D189861790981372220b",
+      "address": "0x20f1A13BfbF85a22Aa59D189861790981372220b",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - ezETH | WETH cWETH",
+      "url": "https://monadscan.com/address/0xa206D51C02c0202a2Eed8E6A757b49Ab13930227",
+      "address": "0xa206D51C02c0202a2Eed8E6A757b49Ab13930227",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - ezETH | WETH cezETH Dynamic IRM",
+      "url": "https://monadscan.com/address/0x28444Eb9FA9dDA1E6F3D240B2e06a453505e16E6",
+      "address": "0x28444Eb9FA9dDA1E6F3D240B2e06a453505e16E6",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - ezETH | WETH cWETH Dynamic IRM",
+      "url": "https://monadscan.com/address/0xf23d194e151069d09c927E8CD8ae3e14922F2a23",
+      "address": "0xf23d194e151069d09c927E8CD8ae3e14922F2a23",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - ezETH | WETH SimplePositionManager",
+      "url": "https://monadscan.com/address/0xd8d3E46E52C3AB8FD98D04143984C763B4Bbc584",
+      "address": "0xd8d3E46E52C3AB8FD98D04143984C763B4Bbc584",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - sAUSD | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0xBBE7A3c45aDBb16F6490767b663428c34aA341Eb",
+      "address": "0xBBE7A3c45aDBb16F6490767b663428c34aA341Eb",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - sAUSD | AUSD csAUSD",
+      "url": "https://monadscan.com/address/0x84C5aF20b58818631164Bb7d798E457fcFACD9Ac",
+      "address": "0x84C5aF20b58818631164Bb7d798E457fcFACD9Ac",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - sAUSD | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0xfD493ce1A0ae986e09d17004B7E748817a47d73c",
+      "address": "0xfD493ce1A0ae986e09d17004B7E748817a47d73c",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - sAUSD | AUSD csAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0xcf31332aB92953101B8E1af7Ca841f6426936da8",
+      "address": "0xcf31332aB92953101B8E1af7Ca841f6426936da8",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - sAUSD | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x22dCF7dd5518F5F08ec05c59606d84698FFF07BB",
+      "address": "0x22dCF7dd5518F5F08ec05c59606d84698FFF07BB",
+      "updateSlot": null
+    },
+    {
+      "name": "SingleSidedVaultPositionManager - sAUSD | AUSD VaultPositionManager",
+      "url": "https://monadscan.com/address/0xe94AC990873C3B59A417d25C1ec1398807FB41A1",
+      "address": "0xe94AC990873C3B59A417d25C1ec1398807FB41A1",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - sAUSD | AUSD SimplePositionManager",
+      "url": "https://monadscan.com/address/0x491e8712885E4e0b98864F13393ced8c1a61FD57",
+      "address": "0x491e8712885E4e0b98864F13393ced8c1a61FD57",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - earnAUSD | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0xd6365555f6a697C7C295bA741100AA644cE28545",
+      "address": "0xd6365555f6a697C7C295bA741100AA644cE28545",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - earnAUSD | AUSD cearnAUSD",
+      "url": "https://monadscan.com/address/0x852FF1EC21D63b405eC431e04AE3AC760e29263D",
+      "address": "0x852FF1EC21D63b405eC431e04AE3AC760e29263D",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - earnAUSD | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0xAd4AA2a713fB86FBb6b60dE2aF9E32a11DB6Abf2",
+      "address": "0xAd4AA2a713fB86FBb6b60dE2aF9E32a11DB6Abf2",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - earnAUSD | AUSD cearnAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x346339e3Fbd21ed48ADDDE1523896c0d97cF1851",
+      "address": "0x346339e3Fbd21ed48ADDDE1523896c0d97cF1851",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - earnAUSD | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x46e2bA1D6CFfB180Efa17d4D5A726b599ED8B904",
+      "address": "0x46e2bA1D6CFfB180Efa17d4D5A726b599ED8B904",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - earnAUSD | AUSD SimplePositionManagers",
+      "url": "https://monadscan.com/address/0xd807efC94376618B4d9CE6eAaf89607006d3B881",
+      "address": "0xd807efC94376618B4d9CE6eAaf89607006d3B881",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - syzUSD | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x90fc1A4abC4ee5f8a9560dE069067D9606d2909C",
+      "address": "0x90fc1A4abC4ee5f8a9560dE069067D9606d2909C",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - syzUSD | AUSD csyzUSD",
+      "url": "https://monadscan.com/address/0x7EdA3cb060Ff7B650eB227971dbfEBD3513b11D5",
+      "address": "0x7EdA3cb060Ff7B650eB227971dbfEBD3513b11D5",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - syzUSD | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0x8E94704607E857eB3E10Bd21D90bf8C1Ecba0452",
+      "address": "0x8E94704607E857eB3E10Bd21D90bf8C1Ecba0452",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - syzUSD | AUSD csyzUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x0A8c317C25A000000296673Bd75cA3f5c1E8C57c",
+      "address": "0x0A8c317C25A000000296673Bd75cA3f5c1E8C57c",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - syzUSD | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0xdCB32fc822eAe8794E48Ad005b50AA850529296D",
+      "address": "0xdCB32fc822eAe8794E48Ad005b50AA850529296D",
+      "updateSlot": null
+    },
+    {
+      "name": "syzUSD | AUSD SimplePositionManager (unverified)",
+      "url": "https://monadscan.com/address/0xb233b28fd3c966ebae9D9133DCDD1ad14Cb103B3",
+      "address": "0xb233b28fd3c966ebae9D9133DCDD1ad14Cb103B3",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - YZM | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x4409e2161B6f9A25ACbC471a37390654Ed272249",
+      "address": "0x4409e2161B6f9A25ACbC471a37390654Ed272249",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - YZM | AUSD cYZM",
+      "url": "https://monadscan.com/address/0x8626B8f4F64CAeee9549Af8ebbFA591A7425e5ba",
+      "address": "0x8626B8f4F64CAeee9549Af8ebbFA591A7425e5ba",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - YZM | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0xcdc9D2c4EaD8f2A9FD3D6F5a00bA4e6001ab7898",
+      "address": "0xcdc9D2c4EaD8f2A9FD3D6F5a00bA4e6001ab7898",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - YZM | AUSD cYZM Dynamic IRM",
+      "url": "https://monadscan.com/address/0x9f39f4b61E89f78eE34780664afDc8D5bfAa74ca",
+      "address": "0x9f39f4b61E89f78eE34780664afDc8D5bfAa74ca",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - YZM | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0xC813497D710CF30f7eEF73eF5dAC53c76fb821E6",
+      "address": "0xC813497D710CF30f7eEF73eF5dAC53c76fb821E6",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - YZM | AUSD SimplePositionManager",
+      "url": "https://monadscan.com/address/0xb85dEf309F7eEEb8f581909c7afB623dDf59AdD9",
+      "address": "0xb85dEf309F7eEEb8f581909c7afB623dDf59AdD9",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - wsrUSD | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x627a15859d09C1550e2934991AA95aFc6896e3Ef",
+      "address": "0x627a15859d09C1550e2934991AA95aFc6896e3Ef",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - wsrUSD | AUSD cwsrUSD",
+      "url": "https://monadscan.com/address/0x251B67Ae7e90fDc6a7B080Ee601913A8B2746A28",
+      "address": "0x251B67Ae7e90fDc6a7B080Ee601913A8B2746A28",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - wsrUSD | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0x88e0994E8130EF72bf614CBBcF722839B167c8d1",
+      "address": "0x88e0994E8130EF72bf614CBBcF722839B167c8d1",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - wsrUSD | AUSD cwsrUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x89ed43d2ab0aE39beE492bA1Ee6117B07aFAA066",
+      "address": "0x89ed43d2ab0aE39beE492bA1Ee6117B07aFAA066",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - wsrUSD | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0xb785f9234d22bA56CCc117CFd3e9f460B8AB354e",
+      "address": "0xb785f9234d22bA56CCc117CFd3e9f460B8AB354e",
+      "updateSlot": null
+    },
+    {
+      "name": "wsrUSD | AUSD SimplePositionManager (unverified)",
+      "url": "https://monadscan.com/address/0x9bc31b2Ea33bD60fd606Bc2287fF65c3334071f7",
+      "address": "0x9bc31b2Ea33bD60fd606Bc2287fF65c3334071f7",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - vUSD | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x2DB9AB1bB00d7000b21A2EbcE7D1a9b91F351E72",
+      "address": "0x2DB9AB1bB00d7000b21A2EbcE7D1a9b91F351E72",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - vUSD | AUSD cvUSD",
+      "url": "https://monadscan.com/address/0x42369AFe4bA4225b800b8024Acc5F14f42A3836C",
+      "address": "0x42369AFe4bA4225b800b8024Acc5F14f42A3836C",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - vUSD | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0x4806902Ec0320e5334c2B2679FFB58C830348F1c",
+      "address": "0x4806902Ec0320e5334c2B2679FFB58C830348F1c",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - vUSD | AUSD cvUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x6439719873A332AAfb88Bd33e324E597e750c7Bd",
+      "address": "0x6439719873A332AAfb88Bd33e324E597e750c7Bd",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - vUSD | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0xb526Fa1D4e8D680FFDCAcdd977C2c912dD1CA43A",
+      "address": "0xb526Fa1D4e8D680FFDCAcdd977C2c912dD1CA43A",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - vUSD | AUSD SimplePositionManager",
+      "url": "https://monadscan.com/address/0xCb1709fAF66A73b4f6026b531Bef9AF971368f50",
+      "address": "0xCb1709fAF66A73b4f6026b531Bef9AF971368f50",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - eBTC | WBTC MarketManager",
+      "url": "https://monadscan.com/address/0xBc4cd7bbd8d38027A88838B88BA04561FA778C35",
+      "address": "0xBc4cd7bbd8d38027A88838B88BA04561FA778C35",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - eBTC | WBTC ceBTC",
+      "url": "https://monadscan.com/address/0x2840772E14fFbe337aB966727B7D1Dd09BDc76E4",
+      "address": "0x2840772E14fFbe337aB966727B7D1Dd09BDc76E4",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - eBTC | WBTC cWBTC",
+      "url": "https://monadscan.com/address/0xdB3e888c3b50771821226d30Ab6eC14eB5ba85bA",
+      "address": "0xdB3e888c3b50771821226d30Ab6eC14eB5ba85bA",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - eBTC | WBTC ceBTC Dynamic IRM",
+      "url": "https://monadscan.com/address/0x2A0Ed67E41662339281A9c9697241d964152B782",
+      "address": "0x2A0Ed67E41662339281A9c9697241d964152B782",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - eBTC | WBTC cWBTC Dynamic IRM",
+      "url": "https://monadscan.com/address/0x95B961B9aD06dB25831FcdA3c7A79b1EB7c3AFA8",
+      "address": "0x95B961B9aD06dB25831FcdA3c7A79b1EB7c3AFA8",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - eBTC | WBTC SimplePositionManager",
+      "url": "https://monadscan.com/address/0x5e339724818c4b46E1Bc6966FeB4ea2924Ca17D9",
+      "address": "0x5e339724818c4b46E1Bc6966FeB4ea2924Ca17D9",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - savUSD | USDC MarketManager",
+      "url": "https://monadscan.com/address/0x38104e87Eb96ce5ef1C23a06878dB0D657B4a699",
+      "address": "0x38104e87Eb96ce5ef1C23a06878dB0D657B4a699",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - savUSD | USDC csavUSD",
+      "url": "https://monadscan.com/address/0x3afB9A1cC0d2b0D62502B84B070601fF0DC84363",
+      "address": "0x3afB9A1cC0d2b0D62502B84B070601fF0DC84363",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - savUSD | USDC cUSDC",
+      "url": "https://monadscan.com/address/0x9891178A1178E4C740Fa61Fd6e30A9D92D897590",
+      "address": "0x9891178A1178E4C740Fa61Fd6e30A9D92D897590",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - savUSD | USDC csavUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0xa6424210c18C34035204fbd7F44Dcafb04053082",
+      "address": "0xa6424210c18C34035204fbd7F44Dcafb04053082",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - savUSD | USDC cUSDC Dynamic IRM",
+      "url": "https://monadscan.com/address/0x11EE1eDee565c216f595D329A59863E360DCeB42",
+      "address": "0x11EE1eDee565c216f595D329A59863E360DCeB42",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - savUSD | USDC SimplePositionManager",
+      "url": "https://monadscan.com/address/0x7B918FF5EDc44B29ced4d3dc52Fb8b859025325c",
+      "address": "0x7B918FF5EDc44B29ced4d3dc52Fb8b859025325c",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - savUSD | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x4B0a39eCC3e5A5dA3ce6D492D4D255cD1F0209F7",
+      "address": "0x4B0a39eCC3e5A5dA3ce6D492D4D255cD1F0209F7",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - savUSD | AUSD csavUSD",
+      "url": "https://monadscan.com/address/0x2552232caBd544b67eEa900A951346D3272c7c2f",
+      "address": "0x2552232caBd544b67eEa900A951346D3272c7c2f",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - savUSD | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0xD1BFEA1728ffe98F515f26082fACfcc3341691D4",
+      "address": "0xD1BFEA1728ffe98F515f26082fACfcc3341691D4",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - savUSD | AUSD csavUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x402A26Dfd9Df18E384bc5e8d8296EF8fE5AFdee9",
+      "address": "0x402A26Dfd9Df18E384bc5e8d8296EF8fE5AFdee9",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - savUSD | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x65120989A1f8B1F24b6446a6c08AD1f6BE039Bcf",
+      "address": "0x65120989A1f8B1F24b6446a6c08AD1f6BE039Bcf",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - savUSD | AUSD SimplePositionManager",
+      "url": "https://monadscan.com/address/0xb8F6f480E645dBa96Df9eD3948D900725bA9e9Ec",
+      "address": "0xb8F6f480E645dBa96Df9eD3948D900725bA9e9Ec",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - muBOND | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x830D40CDFdc494BC1A2729a7381bfCe44326c944",
+      "address": "0x830D40CDFdc494BC1A2729a7381bfCe44326c944",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - muBOND | AUSD cmuBOND",
+      "url": "https://monadscan.com/address/0x92EE4b4d33Dc61bd93a88601F29131B08aCedBF1",
+      "address": "0x92EE4b4d33Dc61bd93a88601F29131B08aCedBF1",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - muBOND | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0x2B4e0232F46E6DB4af35474c140B968EeFCB09Ec",
+      "address": "0x2B4e0232F46E6DB4af35474c140B968EeFCB09Ec",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - muBOND | AUSD cmuBOND Dynamic IRM",
+      "url": "https://monadscan.com/address/0x5b1d3a91457f7AD854a559dAACc0be18cD402D12",
+      "address": "0x5b1d3a91457f7AD854a559dAACc0be18cD402D12",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - muBOND | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0x08DcB6Ad285217ef29816Ac0F813C21C54c48Cd5",
+      "address": "0x08DcB6Ad285217ef29816Ac0F813C21C54c48Cd5",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - muBOND | AUSD SimplePositionManager",
+      "url": "https://monadscan.com/address/0xA3d212D4705caf42C35d6EaE0C85E94c4cd329E4",
+      "address": "0xA3d212D4705caf42C35d6EaE0C85E94c4cd329E4",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - loAZND | AUSD MarketManager",
+      "url": "https://monadscan.com/address/0x7C822B093A116654F824Ec2A35CD23a3749E4f90",
+      "address": "0x7C822B093A116654F824Ec2A35CD23a3749E4f90",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - loAZND | AUSD cloAZND",
+      "url": "https://monadscan.com/address/0xf7a6AB4aF86966C141D3C5633DF658E5CDb0a735",
+      "address": "0xf7a6AB4aF86966C141D3C5633DF658E5CDb0a735",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - loAZND | AUSD cAUSD",
+      "url": "https://monadscan.com/address/0xDaDbB2D8f9802DC458F5D7F133D053087Ba8983d",
+      "address": "0xDaDbB2D8f9802DC458F5D7F133D053087Ba8983d",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - loAZND | AUSD cloAZND Dynamic IRM",
+      "url": "https://monadscan.com/address/0x5d2b40E3e3FdCDEd15314290d4384D4D12044233",
+      "address": "0x5d2b40E3e3FdCDEd15314290d4384D4D12044233",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - loAZND | AUSD cAUSD Dynamic IRM",
+      "url": "https://monadscan.com/address/0xf4E19DEdB240FFd9ECEDbfad88A91C34aC3095AA",
+      "address": "0xf4E19DEdB240FFd9ECEDbfad88A91C34aC3095AA",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - loAZND | AUSD SimplePositionManager",
+      "url": "https://monadscan.com/address/0x9e4638fd67bE15360bfebC5e07AECfF33dfda917",
+      "address": "0x9e4638fd67bE15360bfebC5e07AECfF33dfda917",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - shMON | WMON MarketManager",
+      "url": "https://monadscan.com/address/0xE1C24B2E93230FBe33d32Ba38ECA3218284143e2",
+      "address": "0xE1C24B2E93230FBe33d32Ba38ECA3218284143e2",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - shMON | WMON cshMON",
+      "url": "https://monadscan.com/address/0x926C101Cf0a3dE8725Eb24a93E980f9FE34d6230",
+      "address": "0x926C101Cf0a3dE8725Eb24a93E980f9FE34d6230",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - shMON | WMON cWMON",
+      "url": "https://monadscan.com/address/0x0fcEd51b526BfA5619F83d97b54a57e3327eB183",
+      "address": "0x0fcEd51b526BfA5619F83d97b54a57e3327eB183",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - shMON | WMON cshMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0x2C802F49fb5ce37D37E947D9b88B2A2Cea7A3C31",
+      "address": "0x2C802F49fb5ce37D37E947D9b88B2A2Cea7A3C31",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - shMON | WMON cWMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0x963E8aFc1a60E470EB2381896F75853bF6C1FeD2",
+      "address": "0x963E8aFc1a60E470EB2381896F75853bF6C1FeD2",
+      "updateSlot": null
+    },
+    {
+      "name": "NativeVaultPositionManager - shMON | WMON NativeVaultPositionManager",
+      "url": "https://monadscan.com/address/0x2fAA792502aC5a329DcCc1580C5308fCc0a772fe",
+      "address": "0x2fAA792502aC5a329DcCc1580C5308fCc0a772fe",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - shMON | WMON SimplePositionManager",
+      "url": "https://monadscan.com/address/0x7E8705a164DA7Cc5a4119C750b1F79837AD89D5E",
+      "address": "0x7E8705a164DA7Cc5a4119C750b1F79837AD89D5E",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - aprMON | WMON MarketManager",
+      "url": "https://monadscan.com/address/0x5EA0a1Cf3501C954b64902c5e92100b8A2CaB1Ac",
+      "address": "0x5EA0a1Cf3501C954b64902c5e92100b8A2CaB1Ac",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - aprMON | WMON caprMON",
+      "url": "https://monadscan.com/address/0xD9E2025b907E95EcC963A5018f56B87575B4aB26",
+      "address": "0xD9E2025b907E95EcC963A5018f56B87575B4aB26",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - aprMON | WMON cWMON",
+      "url": "https://monadscan.com/address/0xF32B334042DC1EB9732454cc9bc1a06205d184f2",
+      "address": "0xF32B334042DC1EB9732454cc9bc1a06205d184f2",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - aprMON | WMON caprMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0x0d44480D72B23D19673EEde88aEa03a119bc13f4",
+      "address": "0x0d44480D72B23D19673EEde88aEa03a119bc13f4",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - aprMON | WMON cWMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0x309d475e84b7C99C98031006F491e20280a1A768",
+      "address": "0x309d475e84b7C99C98031006F491e20280a1A768",
+      "updateSlot": null
+    },
+    {
+      "name": "NativeVaultPositionManager - aprMON | WMON NativePositionManager",
+      "url": "https://monadscan.com/address/0x82f88A810E86a730699231F5fBF5686c643467C8",
+      "address": "0x82f88A810E86a730699231F5fBF5686c643467C8",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - aprMON | WMON SimplePositionManager",
+      "url": "https://monadscan.com/address/0x669786FF3da7544c98FE74eE1006D787118d1770",
+      "address": "0x669786FF3da7544c98FE74eE1006D787118d1770",
+      "updateSlot": null
+    },
+    {
+      "name": "MarketManagerIsolated - sMON | WMON MarketManager",
+      "url": "https://monadscan.com/address/0xe5970cDB1916B2cCF6185C86C174EEE2d330D05B",
+      "address": "0xe5970cDB1916B2cCF6185C86C174EEE2d330D05B",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - sMON | WMON csMON",
+      "url": "https://monadscan.com/address/0x494876051B0E85dCe5ecd5822B1aD39b9660c928",
+      "address": "0x494876051B0E85dCe5ecd5822B1aD39b9660c928",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - sMON | WMON cWMON",
+      "url": "https://monadscan.com/address/0xebE45A6ceA7760a71D8e0fa5a0AE80a75320D708",
+      "address": "0xebE45A6ceA7760a71D8e0fa5a0AE80a75320D708",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - sMON | WMON csMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0x0db363a2eDB3Ac8F4CDdC174ff44B6dfd09A2FeF",
+      "address": "0x0db363a2eDB3Ac8F4CDdC174ff44B6dfd09A2FeF",
+      "updateSlot": null
+    },
+    {
+      "name": "DynamicIRM - sMON | WMON cWMON Dynamic IRM",
+      "url": "https://monadscan.com/address/0x16cB8A09f2a17E30273b749ed178954FE63bb1BC",
+      "address": "0x16cB8A09f2a17E30273b749ed178954FE63bb1BC",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - sMON | WMON SimplePositionManager",
+      "url": "https://monadscan.com/address/0x3d6ba6C90E1738cb01C46E72F284C7Bd57eB11EC",
+      "address": "0x3d6ba6C90E1738cb01C46E72F284C7Bd57eB11EC",
+      "updateSlot": null
+    },
+    {
+      "name": "gMON | WMON MarketManager (unverified)",
+      "url": "https://monadscan.com/address/0xb00aFF53a4Df2b4E2f97a3d9ffaDb55564C8E42F",
+      "address": "0xb00aFF53a4Df2b4E2f97a3d9ffaDb55564C8E42F",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - gMON | WMON cgMON",
+      "url": "https://monadscan.com/address/0x5ca6966543c0786f547446234492D2F11C82f11f",
+      "address": "0x5ca6966543c0786f547446234492D2F11C82f11f",
+      "updateSlot": null
+    },
+    {
+      "name": "BorrowableCToken - gMON | WMON cWMON",
+      "url": "https://monadscan.com/address/0xf473568b26B8C5aadCa9fbC0eA17E1728d5ec925",
+      "address": "0xf473568b26B8C5aadCa9fbC0eA17E1728d5ec925",
+      "updateSlot": null
+    },
+    {
+      "name": "gMON | WMON cgMON Dynamic IRM (unverified)",
+      "url": "https://monadscan.com/address/0x95DFba58340Ba7Cde59FB4D16EA85caDb4F83894",
+      "address": "0x95DFba58340Ba7Cde59FB4D16EA85caDb4F83894",
+      "updateSlot": null
+    },
+    {
+      "name": "gMON | WMON cWMON Dynamic IRM (unverified)",
+      "url": "https://monadscan.com/address/0x034Cb4152B6506c445f18d564b3Ce86B0DE05C7B",
+      "address": "0x034Cb4152B6506c445f18d564b3Ce86B0DE05C7B",
+      "updateSlot": null
+    },
+    {
+      "name": "SimplePositionManager - gMON | WMON SimplePositionManager",
+      "url": "https://monadscan.com/address/0x77B90040E6dFE8A62293Cd91CAeE35296EC266Ee",
+      "address": "0x77B90040E6dFE8A62293Cd91CAeE35296EC266Ee",
+      "updateSlot": null
+    },
+    {
+      "name": "Zappers Native Vault Zapper (unverified)",
+      "url": "https://monadscan.com/address/0xF562745Ac9bf3466d5eD829819a27Ef0324EF407",
+      "address": "0xF562745Ac9bf3466d5eD829819a27Ef0324EF407",
+      "updateSlot": null
+    },
+    {
+      "name": "Zappers Vault Zapper (unverified)",
+      "url": "https://monadscan.com/address/0x8DA05a1Ad927fFB0A6B0E045b11b94e8d2256366",
+      "address": "0x8DA05a1Ad927fFB0A6B0E045b11b94e8d2256366",
+      "updateSlot": null
+    },
+    {
+      "name": "Zappers Simple Zapper (unverified)",
+      "url": "https://monadscan.com/address/0x7b01E1D9c403aAAF7d960202Fee913F48C43E53c",
+      "address": "0x7b01E1D9c403aAAF7d960202Fee913F48C43E53c",
+      "updateSlot": null
+    },
+    {
+      "name": "CentralRegistry - Architecture CentralRegistry",
+      "url": "https://monadscan.com/address/0x1310f352f1389969Ece6741671c4B919523912fF",
+      "address": "0x1310f352f1389969Ece6741671c4B919523912fF",
+      "updateSlot": null
+    },
+    {
+      "name": "OracleManager - Architecture OracleManager",
+      "url": "https://monadscan.com/address/0x32faD39e79FAc67f80d1C86CbD1598043e52CDb6",
+      "address": "0x32faD39e79FAc67f80d1C86CbD1598043e52CDb6",
+      "updateSlot": null
+    },
+    {
+      "name": "ProtocolManagerDeployment - Architecture ProtocolManagerDeployment",
+      "url": "https://monadscan.com/address/0x1482192DeB828a870f7E9B99d75D1DaFda973e4c",
+      "address": "0x1482192DeB828a870f7E9B99d75D1DaFda973e4c",
+      "updateSlot": null
+    },
+    {
+      "name": "DAOTimelock - Architecture DAOTimelock",
+      "url": "https://monadscan.com/address/0x2677738657F27e1A3591E00AD7E5a78807688C08",
+      "address": "0x2677738657F27e1A3591E00AD7E5a78807688C08",
+      "updateSlot": null
+    },
+    {
+      "name": "Architecture ProtocolReader (unverified)",
+      "url": "https://monadscan.com/address/0x55C7c1fe1DACB014aD3b21951728B5E580662268",
+      "address": "0x55C7c1fe1DACB014aD3b21951728B5E580662268",
+      "updateSlot": null
+    },
+    {
+      "name": "ChainlinkAdaptor - Oracle Adaptors Chainlink Adaptor",
+      "url": "https://monadscan.com/address/0xACfE3fCcae79445836E03c5359BB96bd352b9C00",
+      "address": "0xACfE3fCcae79445836E03c5359BB96bd352b9C00",
+      "updateSlot": null
+    },
+    {
+      "name": "RedstoneClassicAdaptor - Oracle Adaptors Redstone Classic Adaptor",
+      "url": "https://monadscan.com/address/0x0fA602b3e748438A3F1599206Ed6DC497ab3331E",
+      "address": "0x0fA602b3e748438A3F1599206Ed6DC497ab3331E",
+      "updateSlot": null
+    }
+  ]
+}

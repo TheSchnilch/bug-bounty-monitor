@@ -1,0 +1,1 @@
+claude -p --model claude-opus-5-5 --output-format json
