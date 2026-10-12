@@ -1,11 +1,14 @@
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
+from typing import Any, NamedTuple
 
 from Crypto.Hash import keccak
+from eth_abi.exceptions import DecodingError
 
 from .codes import abi_events, abi_file, register
 from .etherscan import Etherscan
+from .handlers import decode, run_script
 from .rpc import Rpc
 
 CONFIRMATIONS = 12
@@ -17,6 +20,15 @@ def topic(signature: str) -> str:
 
 def word_address(word: str) -> str:
     return "0x" + word[-40:].lower()
+
+
+class Handler(NamedTuple):
+    id: int
+    name: str
+    kind: str
+    signature: str
+    script: str
+    inputs: list[dict[str, Any]]
 
 
 class Watch:
@@ -63,30 +75,44 @@ class Watch:
             self.changes.append(f"{contract} {name}: {current} -> {address}")
 
     def events(self, start: int, end: int) -> None:
-        watched: dict[str, dict[str, list[tuple[int, str, str, int]]]] = defaultdict(lambda: defaultdict(list))
+        watched: dict[str, dict[str, list[Handler]]] = defaultdict(lambda: defaultdict(list))
         rows = self.connection.execute(
-            "SELECT d.id, d.contract, d.name, e.signature, e.field, c.contract_name, c.source_hash FROM dependency_events e "
+            "SELECT d.id, d.contract, d.name, d.kind, e.signature, e.script, c.contract_name, c.source_hash FROM dependency_events e "
             "JOIN dependencies d ON d.id = e.dependency JOIN contracts k ON k.address = d.contract JOIN codes c ON c.id = k.code"
         ).fetchall()
-        for id_, contract, name, signature, field, contract_name, source_hash in rows:
+        for id_, contract, name, kind, signature, script, contract_name, source_hash in rows:
             inputs = abi_events(abi_file(self.codes_dir, contract_name, source_hash)).get(signature)
-            if inputs is None:
-                continue
-            indexed = [i["name"] for i in inputs if i.get("indexed")]
-            if field in indexed:
-                watched[contract][topic(signature)].append((id_, name, "topic", 1 + indexed.index(field)))
-            else:
-                watched[contract][topic(signature)].append((id_, name, "data", [i["name"] for i in inputs if not i.get("indexed")].index(field)))
+            if inputs is not None:
+                watched[contract][topic(signature)].append(Handler(id_, name, kind, signature, script, inputs))
         for contract, topics in watched.items():
             logs = [log for topic0 in sorted(topics) for log in self.etherscan.logs(contract, topic0, start, end)]
             for log in sorted(logs, key=lambda log: (int(log["blockNumber"], 16), int(log["logIndex"] or "0x0", 16))):
-                for id_, name, where, index in topics[log["topics"][0]]:
-                    word = log["topics"][index] if where == "topic" else log["data"][2 + 64 * index:2 + 64 * (index + 1)]
-                    address = word_address(word)
-                    if not self.ensure(address, "event", hex(end)):
-                        self.changes.append(f"{contract} {name}: event added {address}, which is not a contract")
+                block = int(log["blockNumber"], 16)
+                for handler in topics[log["topics"][0]]:
+                    try:
+                        event = {"address": contract, "signature": handler.signature, "block": block, "transaction": log.get("transactionHash"),
+                                 "topics": log["topics"], "data": log["data"], "args": decode(handler.inputs, log)}
+                        added, removed = run_script(handler.script, event)
+                    except (RuntimeError, DecodingError) as exc:
+                        self.changes.append(f"{contract} {handler.name}: script for {handler.signature} failed in block {block}: {exc}")
                         continue
-                    with self.connection:
-                        added = self.connection.execute("INSERT OR IGNORE INTO dependency_targets VALUES (?, ?, 'event')", (id_, address)).rowcount
-                    if added:
-                        self.changes.append(f"{contract} {name}: added {address} in block {int(log['blockNumber'], 16)}")
+                    self.apply(contract, handler, added, removed, block, hex(end))
+
+    def apply(self, contract: str, handler: Handler, added: list[str], removed: list[str], block: int, tag: str) -> None:
+        for address in removed:
+            with self.connection:
+                gone = self.connection.execute("DELETE FROM dependency_targets WHERE dependency = ? AND address = ?", (handler.id, address)).rowcount
+            if gone:
+                self.changes.append(f"{contract} {handler.name}: removed {address} in block {block}")
+        for address in added:
+            if not self.ensure(address, "event", tag):
+                self.changes.append(f"{contract} {handler.name}: event added {address}, which is not a contract")
+                continue
+            with self.connection:
+                replaced = 0
+                if handler.kind == "single":
+                    replaced = self.connection.execute(
+                        "DELETE FROM dependency_targets WHERE dependency = ? AND address != ?", (handler.id, address)).rowcount
+                inserted = self.connection.execute("INSERT OR IGNORE INTO dependency_targets VALUES (?, ?, 'event')", (handler.id, address)).rowcount
+            if replaced or inserted:
+                self.changes.append(f"{contract} {handler.name}: {'set to' if handler.kind == 'single' else 'added'} {address} in block {block}")

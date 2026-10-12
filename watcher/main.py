@@ -61,12 +61,15 @@ def cycle(data_root: Path, env: dict[str, str]) -> None:
     try:
         sync(connection, data_root, scope, etherscan)
         block, changes = Watch(connection, Rpc(alchemy_url(env, scope.chain)), etherscan, data_root / "codes").run()
-        counts = connection.execute("SELECT (SELECT count(*) FROM contracts), (SELECT count(*) FROM dependencies)").fetchone()
+        counts = connection.execute(
+            "SELECT (SELECT count(*) FROM contracts), (SELECT count(*) FROM contracts WHERE in_scope = 1), (SELECT count(*) FROM dependencies)"
+        ).fetchone()
     finally:
         connection.close()
     for change in changes:
         say(change)
-    say(f"checked up to block {block}: {counts[0]} contracts, {counts[1]} dependencies, {len(changes)} changes")
+    total, in_scope, links = counts
+    say(f"checked up to block {block}: {total} contracts ({in_scope} in scope, {total - in_scope} dependencies), {links} dependency links, {len(changes)} changes")
 
 
 def main(argv: list[str] | None = None) -> None:

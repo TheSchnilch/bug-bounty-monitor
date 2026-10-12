@@ -1,5 +1,4 @@
 import json
-import sqlite3
 import tempfile
 import threading
 import unittest
@@ -16,10 +15,21 @@ from watcher.watch import Watch, topic
 
 MARKET, ORACLE, ORACLE_V2, CTOKEN, MANAGER, WALLET = ("0x" + byte * 20 for byte in ("aa", "0e", "0f", "c1", "9a", "99"))
 TOKEN_LISTED, MANAGER_UPDATED = "TokenListed(address)", "PositionManagerUpdated(address,bool)"
+MARKETS_ADDED, RISK_MANAGER_SET = "MarketsAdded(address[])", "RiskManagerSet(address)"
 MARKET_ABI = [
     {"type": "event", "name": "TokenListed", "inputs": [{"name": "cToken", "type": "address", "indexed": True}]},
     {"type": "event", "name": "PositionManagerUpdated", "inputs": [{"name": "positionManager", "type": "address"}, {"name": "add", "type": "bool"}]},
+    {"type": "event", "name": "MarketsAdded", "inputs": [{"name": "markets", "type": "address[]"}]},
+    {"type": "event", "name": "RiskManagerSet", "inputs": [{"name": "", "type": "address", "indexed": True}]},
 ]
+TOKEN_SCRIPT = 'def handle(event):\n    return [event["args"]["cToken"]], []\n'
+MANAGER_SCRIPT = """def handle(event):
+    manager = event["args"]["positionManager"]
+    return ([manager], []) if event["args"]["add"] else ([], [manager])
+"""
+MARKETS_SCRIPT = 'def handle(event):\n    return event["args"]["markets"], []\n'
+RISK_SCRIPT = 'def handle(event):\n    return [event["args"]["arg0"]], []\n'
+BROKEN_SCRIPT = 'def handle(event):\n    raise ValueError("boom")\n'
 
 
 def entry(name: str, body: str = "", abi: list[dict[str, Any]] | None = None) -> dict[str, str]:
@@ -78,8 +88,11 @@ class WatchTest(unittest.TestCase):
         register(self.connection, self.etherscan, self.root / "codes", ORACLE, "Oracle Manager", "agent")
         with self.connection:
             self.dependency("oracleManager", "0x5", "single", [ORACLE])
-            self.dependency("cTokens", None, "list", [], (TOKEN_LISTED, "cToken"))
-            self.dependency("positionManagers", None, "list", [], (MANAGER_UPDATED, "positionManager"))
+            self.dependency("cTokens", None, "list", [], (TOKEN_LISTED, TOKEN_SCRIPT))
+            self.dependency("positionManagers", None, "list", [], (MANAGER_UPDATED, MANAGER_SCRIPT))
+            self.dependency("markets", None, "list", [], (MARKETS_ADDED, MARKETS_SCRIPT))
+            self.dependency("riskManager", None, "single", [ORACLE], (RISK_MANAGER_SET, RISK_SCRIPT))
+            self.dependency("broken", None, "list", [], (TOKEN_LISTED, BROKEN_SCRIPT))
 
     def dependency(self, name: str, slot: str | None, kind: str, targets: list[str], event: tuple[str, str] | None = None) -> None:
         id_ = self.connection.execute("INSERT INTO dependencies (contract, name, slot, kind) VALUES (?, ?, ?, ?)", (MARKET, name, slot, kind)).lastrowid
@@ -118,45 +131,43 @@ class WatchTest(unittest.TestCase):
     def test_slot_and_event_changes_are_found(self) -> None:
         self.watch()
         self.storage[(MARKET, "0x5")] = word(ORACLE_V2)
-        self.log(95, TOKEN_LISTED, [word(CTOKEN)])
         self.log(90, MANAGER_UPDATED, [], "0x" + word(MANAGER)[2:] + "0" * 63 + "1")
+        self.log(92, MANAGER_UPDATED, [], "0x" + word(MANAGER)[2:] + "0" * 64)
+        self.log(93, MARKETS_ADDED, [], "0x" + "0" * 62 + "20" + "0" * 63 + "2" + word(CTOKEN)[2:] + word(MANAGER)[2:])
+        self.log(95, TOKEN_LISTED, [word(CTOKEN)])
         self.log(96, TOKEN_LISTED, [word(WALLET)])
+        self.log(97, RISK_MANAGER_SET, [word(ORACLE_V2)])
         self.log(99, TOKEN_LISTED, [word(ORACLE)])
         self.head = 110
 
         block, changes = self.watch()
         self.assertEqual(block, 98)
+        broken = f"{MARKET} broken: script for {TOKEN_LISTED} failed in block"
         self.assertEqual(changes, [
             f"new contract OracleManagerV2 at {ORACLE_V2}",
             f"{MARKET} oracleManager: {ORACLE} -> {ORACLE_V2}",
             f"new contract PositionManager at {MANAGER}",
             f"{MARKET} positionManagers: added {MANAGER} in block 90",
+            f"{MARKET} positionManagers: removed {MANAGER} in block 92",
             f"new contract BorrowableCToken at {CTOKEN}",
+            f"{MARKET} markets: added {CTOKEN} in block 93",
+            f"{MARKET} markets: added {MANAGER} in block 93",
             f"{MARKET} cTokens: added {CTOKEN} in block 95",
+            f"{broken} 95: ValueError: boom",
             f"{MARKET} cTokens: event added {WALLET}, which is not a contract",
+            f"{broken} 96: ValueError: boom",
+            f"{MARKET} riskManager: set to {ORACLE_V2} in block 97",
         ])
         self.assertEqual(self.targets("oracleManager"), [(ORACLE_V2, "slot")])
         self.assertEqual(self.targets("cTokens"), [(CTOKEN, "event")])
-        self.assertEqual(self.targets("positionManagers"), [(MANAGER, "event")])
+        self.assertEqual(self.targets("positionManagers"), [])
+        self.assertEqual(self.targets("markets"), [(MANAGER, "event"), (CTOKEN, "event")])
+        self.assertEqual(self.targets("riskManager"), [(ORACLE_V2, "event")])
         origins = dict(self.connection.execute("SELECT address, origin FROM contracts").fetchall())
         self.assertEqual((origins[ORACLE_V2], origins[CTOKEN], origins[MANAGER]), ("slot", "event", "event"))
 
         self.head = 112
-        self.assertEqual(self.watch(), (100, [f"{MARKET} cTokens: added {ORACLE} in block 99"]))
-
-
-class MigrationTest(unittest.TestCase):
-    def test_a_version_4_database_is_migrated(self) -> None:
-        path = Path(tempfile.mkdtemp()) / "watcher.db"
-        old = sqlite3.connect(path)
-        old.executescript("CREATE TABLE contracts (address TEXT PRIMARY KEY, name TEXT NOT NULL, in_scope INTEGER NOT NULL, origin TEXT NOT NULL, code INTEGER);"
-                          "INSERT INTO contracts VALUES ('0x" + "aa" * 20 + "', 'Market', 1, 'manual', NULL); PRAGMA user_version = 4;")
-        old.close()
-        connection = db.init(path)
-        self.addCleanup(connection.close)
-        self.assertEqual(connection.execute("SELECT name FROM contracts").fetchall(), [("Market",)])
-        self.assertEqual(connection.execute("SELECT * FROM state").fetchall(), [])
-        self.assertEqual(connection.execute("PRAGMA user_version").fetchone(), (db.SCHEMA_VERSION,))
+        self.assertEqual(self.watch(), (100, [f"{MARKET} cTokens: added {ORACLE} in block 99", f"{broken} 99: ValueError: boom"]))
 
 
 if __name__ == "__main__":

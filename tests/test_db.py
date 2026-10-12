@@ -127,12 +127,28 @@ class DatabaseTest(unittest.TestCase):
         contracts = self.connection.execute("SELECT address, in_scope FROM contracts ORDER BY address").fetchall()
         self.assertEqual(contracts, [(ORACLE, 0), (MARKET_B, 1), (CTOKEN_WMON, 0)])
         dependencies = self.connection.execute("SELECT contract, name FROM dependencies ORDER BY name").fetchall()
-        self.assertEqual(dependencies, [(MARKET_B, "cTokens"), (MARKET_B, "oracleManager")])
+        self.assertEqual(dependencies, [(MARKET_B, "cTokens"), (CTOKEN_WMON, "marketManager"), (MARKET_B, "oracleManager")])
 
         pruned = db.prune(self.connection, [])
         self.assertEqual(pruned.deleted, [ORACLE, MARKET_B, CTOKEN_WMON])
         self.assertEqual(sorted(name for name, _ in pruned.codes), ["BorrowableCToken", "MarketManager", "OracleManager"])
         self.assertEqual([self.connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] for table in ("contracts", "codes", "dependencies")], [0, 0, 0])
+
+    def test_prune_keeps_everything_reachable_from_the_scope(self) -> None:
+        self.add_contract(MARKET_A, "Market A")
+        for address in (ORACLE, CTOKEN_USDC, CTOKEN_WMON):
+            self.connection.execute("INSERT INTO contracts (address, name, in_scope, origin) VALUES (?, 'found', 0, 'agent')", (address,))
+        self.add_dependency(MARKET_A, "oracleManager", None, "single", [ORACLE])
+        self.add_dependency(ORACLE, "implementation", "0x01", "single", [CTOKEN_USDC])
+        self.add_dependency(CTOKEN_USDC, "back", None, "single", [ORACLE])
+        self.add_dependency(CTOKEN_WMON, "orphan", None, "single", [ORACLE])
+
+        self.assertEqual(db.prune(self.connection, [MARKET_A]).deleted, [CTOKEN_WMON])
+        dependencies = self.connection.execute("SELECT contract, name FROM dependencies ORDER BY name").fetchall()
+        self.assertEqual(dependencies, [(CTOKEN_USDC, "back"), (ORACLE, "implementation"), (MARKET_A, "oracleManager")])
+        self.assertEqual(db.prune(self.connection, [MARKET_A]).deleted, [])
+        self.assertEqual(db.prune(self.connection, []), db.Pruned([MARKET_A], [ORACLE, MARKET_A, CTOKEN_USDC], []))
+        self.assertEqual(self.connection.execute("SELECT count(*) FROM dependencies").fetchone(), (0,))
 
     def test_unknown_schema_version_is_refused(self) -> None:
         self.connection.execute("PRAGMA user_version = 99")

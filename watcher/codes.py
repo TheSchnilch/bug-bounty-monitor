@@ -8,8 +8,8 @@ from . import db
 from .etherscan import Etherscan, code_of, source_files
 
 
-def code_folder(codes_dir: Path, contract_name: str, source_hash: str) -> Path:
-    return codes_dir / f"{contract_name}-{source_hash[:8]}"
+def code_folder(codes_dir: Path, contract_name: str, source_hash: str, in_scope: bool) -> Path:
+    return (codes_dir if in_scope else codes_dir.parent / "dependencies") / f"{contract_name}-{source_hash[:8]}"
 
 
 def abi_file(codes_dir: Path, contract_name: str, source_hash: str) -> Path:
@@ -18,11 +18,15 @@ def abi_file(codes_dir: Path, contract_name: str, source_hash: str) -> Path:
 
 def clone_codes(connection: sqlite3.Connection, etherscan: Etherscan, codes_dir: Path) -> list[Path]:
     rows = connection.execute(
-        "SELECT c.source_hash, c.contract_name, min(k.address) FROM codes c JOIN contracts k ON k.code = c.id GROUP BY c.id ORDER BY c.id"
+        "SELECT c.source_hash, c.contract_name, min(k.address), max(k.in_scope) FROM codes c JOIN contracts k ON k.code = c.id GROUP BY c.id ORDER BY c.id"
     ).fetchall()
     cloned: list[Path] = []
-    for source_hash, contract_name, address in rows:
-        folder, abi = code_folder(codes_dir, contract_name, source_hash), abi_file(codes_dir, contract_name, source_hash)
+    for source_hash, contract_name, address, in_scope in rows:
+        folder, abi = code_folder(codes_dir, contract_name, source_hash, bool(in_scope)), abi_file(codes_dir, contract_name, source_hash)
+        elsewhere = code_folder(codes_dir, contract_name, source_hash, not in_scope)
+        if elsewhere.exists() and not folder.exists():
+            folder.parent.mkdir(parents=True, exist_ok=True)
+            elsewhere.rename(folder)
         if folder.exists() and abi.exists():
             continue
         entry = etherscan.source(address)
@@ -45,7 +49,8 @@ def clone_codes(connection: sqlite3.Connection, etherscan: Etherscan, codes_dir:
 
 def remove_codes(codes_dir: Path, codes: list[tuple[str, str]]) -> None:
     for contract_name, source_hash in codes:
-        shutil.rmtree(code_folder(codes_dir, contract_name, source_hash), ignore_errors=True)
+        for in_scope in (True, False):
+            shutil.rmtree(code_folder(codes_dir, contract_name, source_hash, in_scope), ignore_errors=True)
         abi_file(codes_dir, contract_name, source_hash).unlink(missing_ok=True)
 
 

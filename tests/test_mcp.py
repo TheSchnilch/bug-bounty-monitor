@@ -94,6 +94,7 @@ class McpServerTest(unittest.IsolatedAsyncioTestCase):
         oracle = await self.call("add_contract", address=ORACLE.upper().replace("0X", "0x"), name="Oracle Manager")
         self.assertEqual({key: oracle[key] for key in ("address", "in_scope", "origin")}, {"address": ORACLE, "in_scope": False, "origin": "agent"})
         self.assertEqual(json.loads((self.root / "abis" / f"{Path(oracle['code_folder']).name}.json").read_text()), [])
+        self.assertEqual(Path(oracle["code_folder"]).parent, self.root / "dependencies")
         self.assertEqual(await self.call("add_contract", address=ORACLE, name="Renamed"), oracle)
         unverified = await self.call("add_contract", address=UNVERIFIED, name="Unverified")
         self.assertIsNone(unverified["code_folder"])
@@ -131,19 +132,19 @@ class McpServerTest(unittest.IsolatedAsyncioTestCase):
         market = await self.call("remove_dependency", contract=MARKET, dependency="oracleManager")
         self.assertEqual([dependency["name"] for dependency in market["dependencies"]], ["cTokens"])
 
-    async def test_events_are_checked_against_the_abi(self) -> None:
+    async def test_events_are_saved_with_their_script(self) -> None:
+        script = 'def handle(event):\n    return [event["args"]["cToken"]], []\n'
         await self.call("add_dependency", contract=MARKET, name="cTokens", kind="list", targets=[])
         with self.assertRaisesRegex(ValueError, r"its events are: Configured\(\(address,uint8\)\[\]\), TokenListed\(address,uint256\)"):
-            await self.call("add_dependency_event", contract=MARKET, dependency="cTokens", signature="TokenListed(address indexed cToken)", field="cToken")
-        with self.assertRaisesRegex(ValueError, "its address parameters are: cToken"):
-            await self.call("add_dependency_event", contract=MARKET, dependency="cTokens", signature="TokenListed(address,uint256)", field="id")
-        market = await self.call("add_dependency_event", contract=MARKET, dependency="cTokens", signature="TokenListed(address,uint256)", field="cToken")
-        self.assertEqual(market["dependencies"][0]["events"], [{"signature": "TokenListed(address,uint256)", "field": "cToken"}])
+            await self.call("add_dependency_event", contract=MARKET, dependency="cTokens", signature="TokenListed(address indexed cToken)", script=script)
+        await self.call("add_dependency_event", contract=MARKET, dependency="cTokens", signature="TokenListed(address,uint256)", script="old")
+        market = await self.call("add_dependency_event", contract=MARKET, dependency="cTokens", signature="TokenListed(address,uint256)", script=script)
+        self.assertEqual(market["dependencies"][0]["events"], [{"signature": "TokenListed(address,uint256)", "script": script}])
 
         await self.call("add_contract", address=UNVERIFIED, name="Unverified")
         await self.call("add_dependency", contract=UNVERIFIED, name="tokens", kind="list", targets=[])
         with self.assertRaisesRegex(ValueError, "no verified source"):
-            await self.call("add_dependency_event", contract=UNVERIFIED, dependency="tokens", signature="A(address)", field="a")
+            await self.call("add_dependency_event", contract=UNVERIFIED, dependency="tokens", signature="A(address)", script=script)
 
 
 class McpConfigTest(unittest.TestCase):

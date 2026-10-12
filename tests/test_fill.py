@@ -13,7 +13,7 @@ from unittest import mock
 from pydantic import ValidationError
 
 from watcher import db
-from watcher.codes import clone_codes, remove_codes
+from watcher.codes import clone_codes, register, remove_codes
 from watcher.prompt import dependency_prompt
 from watcher.etherscan import Etherscan
 from watcher.main import fill
@@ -153,6 +153,28 @@ class FillTest(unittest.TestCase):
         self.assertEqual(len(sync()), 1)
         self.write_scope([{"name": "cToken A", "address": CTOKEN_A}])
         self.assertEqual(sync(), [])
+
+    def test_dependency_codes_live_in_their_own_folder(self) -> None:
+        codes_dir = self.root / "codes"
+        with self.connection:
+            db.save_contract(self.connection, MARKET, "Market Manager", self.etherscan.code(MARKET))
+        clone_codes(self.connection, self.etherscan, codes_dir)
+        register(self.connection, self.etherscan, codes_dir, CTOKEN_A, None, "agent")
+        dependencies = self.root / "dependencies"
+        self.assertEqual([path.name.split("-")[0] for path in codes_dir.iterdir()], ["MarketManager"])
+        self.assertEqual([path.name.split("-")[0] for path in dependencies.iterdir()], ["BorrowableCToken"])
+        requests = len(self.requests)
+
+        with self.connection:
+            db.save_contract(self.connection, CTOKEN_A, "cToken A", self.etherscan.code(CTOKEN_A))
+        clone_codes(self.connection, self.etherscan, codes_dir)
+        self.assertEqual(sorted(path.name.split("-")[0] for path in codes_dir.iterdir()), ["BorrowableCToken", "MarketManager"])
+        self.assertEqual(list(dependencies.iterdir()), [])
+        with self.connection:
+            self.connection.execute("UPDATE contracts SET in_scope = 0 WHERE address = ?", (CTOKEN_A,))
+        clone_codes(self.connection, self.etherscan, codes_dir)
+        self.assertEqual([path.name.split("-")[0] for path in dependencies.iterdir()], ["BorrowableCToken"])
+        self.assertEqual(len(self.requests), requests)
 
     def test_a_changed_source_is_not_cloned(self) -> None:
         scope = load_scope(self.write_scope([{"name": "Market Manager", "address": MARKET}]))

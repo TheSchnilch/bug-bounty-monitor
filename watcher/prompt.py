@@ -15,7 +15,7 @@ def dependency_prompt(connection: sqlite3.Connection, scope: Scope, codes_dir: P
     ).fetchall()
     lines = [
         f"- {name} at {address}: "
-        + (str(code_folder(codes_dir, contract_name, source_hash)) if source_hash else "no verified source")
+        + (str(code_folder(codes_dir, contract_name, source_hash, True)) if source_hash else "no verified source")
         for address, name, contract_name, source_hash in rows
     ]
     return (

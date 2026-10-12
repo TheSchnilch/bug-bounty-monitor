@@ -32,13 +32,15 @@ name) is stored in `codes`, so contracts with identical code share one row. Unve
 stored without a code. All requests happen before one transaction, so a failed request writes
 nothing. Every cycle updates names and adds new contracts.
 
-Contracts removed from `scope.json` are pruned in the same cycle: they get `in_scope = 0`, their
-dependencies are deleted, every out-of-scope contract that no dependency points to any more is
-deleted (a removed contract that another in-scope contract still uses stays as out-of-scope), and
-codes without contracts are deleted with their folder and ABI. An empty `scope.json` is refused.
+Contracts removed from `scope.json` are pruned in the same cycle: they get `in_scope = 0`, then
+everything that is no longer reachable from an in-scope contract (following dependency targets
+through any number of levels) is deleted with its dependencies, and codes without contracts are
+deleted with their folder and ABI. A removed contract that is still reachable stays as out-of-scope.
+An empty `scope.json` is refused.
 
-Then every code is cloned once into `<data-root>/codes/<ContractName>-<first 8 hash characters>/`,
-using the source of one of its addresses. Existing folders are skipped, and a source that no longer
+Then every code is cloned once into `<data-root>/codes/<ContractName>-<first 8 hash characters>/`
+when an in-scope contract runs it, otherwise into `<data-root>/dependencies/…`, using the source of one
+of its addresses. When the scope changes, folders are moved between the two instead of cloned again. Existing folders are skipped, and a source that no longer
 matches its hash is refused.
 
 Last, if at least one contract in `scope.json` was not in scope before, the dependency agent runs
@@ -60,11 +62,31 @@ After the sync, the watcher checks every block from the last checked one up to t
   registered (`origin = 'slot'`, source cloned) and replaces the target. A proxy implementation
   recorded with its implementation slot is covered by this.
 - Event dependencies: Etherscan `getLogs` per owning contract and event (the Alchemy free tier only
-  allows 10 blocks per `eth_getLogs`). The address field is read from the topics or the data, using the ABI. A new address is registered
-  (`origin = 'event'`) and added as a target. Only additions are handled so far.
+  allows 10 blocks per `eth_getLogs`). Every log is decoded with the ABI and passed to the event's
+  script, which returns the added and the removed addresses. Logs are processed in chain order, and
+  within one log removals come first. Removed addresses are dropped as targets. Added addresses are
+  registered (`origin = 'event'`) and added as targets; for a `single` dependency the added address
+  replaces the target. A script that fails is reported and that log is skipped.
+
+### Event scripts
+
+The dependency agent gives every event a small Python script with a function `handle(event)` that
+returns `(added, removed)`, two lists of addresses:
+
+```python
+def handle(event):
+    manager = event["args"]["positionManager"]
+    return ([manager], []) if event["args"]["addPerms"] else ([], [manager])
+```
+
+`event` has `address`, `signature`, `block`, `transaction`, `topics`, `data` and `args`, the
+parameters decoded by name (unnamed ones as `arg0`, `arg1`, …; addresses lowercase, bytes as hex,
+tuples and arrays as lists, hashed indexed parameters as the raw topic). The script runs in its own
+Python process (`-I`, 30 second timeout, no `WATCHER_*` variables), with the event as JSON on stdin.
+Scripts are stored in `dependency_events` and have no chain access.
 
 Every change is printed, and every cycle ends with a line like
-`checked up to block 123: 5 contracts, 3 dependencies, 0 changes`. Contracts that are no longer
+`checked up to block 123: 18 contracts (12 in scope, 6 dependencies), 38 dependency links, 0 changes`. Contracts that are no longer
 targeted are pruned in the next cycle.
 
 ### MCP server
@@ -82,7 +104,7 @@ for that run. The server takes the chain from `scope.json` and the keys from `.e
 | `add_contract` | Registers a contract (`origin = 'agent'`, `in_scope = 0`) after checking on-chain that code is deployed, and clones its verified source |
 | `add_dependency` | Adds a `single` (exactly one target) or `list` dependency; targets must be registered first. A slot is only allowed for `single` and must hold the target on-chain now |
 | `add_dependency_target` | Adds a registered contract to a `list` dependency |
-| `add_dependency_event` | Adds an event of the contract that changes the dependency; the canonical signature and the `address` field are checked against the contract's ABI |
+| `add_dependency_event` | Adds an event of the contract that changes the dependency with its script; the canonical signature is checked against the contract's ABI. Saving it again replaces the script |
 | `remove_dependency` | Deletes a dependency with its targets and events |
 
 The ABI of every code from Etherscan is saved as `<data-root>/abis/<ContractName>-<first 8 hash characters>.json`.
@@ -95,7 +117,7 @@ The ABI of every code from Etherscan is saved as `<data-root>/abis/<ContractName
 | `contracts` | Every contract once, keyed by lowercase address: `name`, `in_scope`, `origin` (`manual`, `agent`, `event`, `slot`), `code` (link to `codes`, empty while unknown or unverified) |
 | `dependencies` | Owned by one contract: `name` (unique per contract), optional `slot`, `kind` (`single` or `list`) |
 | `dependency_targets` | The contracts a dependency points to; targets must be registered contracts |
-| `dependency_events` | Events that update a dependency: `signature` and the `field` holding the address |
+| `dependency_events` | Events that update a dependency: `signature` and the `script` that interprets them |
 | `state` | One row with the last checked `block` |
 
 A dependency without `slot` is a fixed link (for example an immutable). Foreign keys are enforced,

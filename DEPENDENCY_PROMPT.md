@@ -12,7 +12,8 @@ For every contract find the other contracts it depends on and record them with t
 ### Rules
 - Only configurated addresses that the protocol interacts with are relevant. For example all addresses that have done a transfer with a token are not interesting. Only contracts the code really calls and interacts with.
 - Contracts that can call restricted functions of a contract, for example through a role or a permission list, are also dependencies of it.
-- If a contract is a proxy, its implementation is a single dependency with the implementation slot, for example the EIP-1967 slot.
+- Only go one level deep: record the dependencies of the contracts in scope, not the dependencies of the contracts you add. The one exception are proxies: if a contract in scope or a contract you add is a proxy, record its implementation as a single dependency of the proxy with the implementation slot, for example the EIP-1967 slot.
 - If a contract already exists do not add it again but still create the dependency connections.
+- Contracts that are added somewhere but are not actually used or not actually have some trusted permissions on the protocol should be ignored not be added as dependencies.
 
-For every dependency also record the events that change it and the event parameter that holds the new address with add_dependency_event. Give every dependency a short name. Contracts with identical code can still have different dependencies and storage, so look at every address on its own.
+For every dependency without a storage slot also record every event that changes it with add_dependency_event, both the events that add addresses and the events that remove them. Each event gets a small Python script that returns the added and removed addresses, as described in the tool. Give every dependency a short name. Contracts with identical code can still have different dependencies and storage, so look at every address on its own.

@@ -1,3 +1,4 @@
 pydantic>=2.7
 mcp>=1.26,<2
 pycryptodome>=3.20
+eth-abi>=5

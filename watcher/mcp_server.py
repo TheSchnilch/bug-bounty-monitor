@@ -1,6 +1,5 @@
 import argparse
 import json
-import re
 import sqlite3
 import sys
 from collections.abc import Generator
@@ -12,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from . import db
+from .db import address_of
 from .codes import abi_events, abi_file, code_folder, register
 from .env import REPO_ROOT, etherscan_key, load_env
 from .etherscan import Etherscan
@@ -24,10 +24,9 @@ INSTRUCTIONS = (
     "Then record dependencies with add_dependency, further list targets with add_dependency_target "
     "and the events that change a dependency with add_dependency_event."
 )
-ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 CONTRACTS = (
-    "SELECT k.address, k.name, k.in_scope, k.origin, c.contract_name, c.source_hash "
-    "FROM contracts k LEFT JOIN codes c ON c.id = k.code"
+    "SELECT k.address, k.name, k.in_scope, k.origin, EXISTS (SELECT 1 FROM contracts s WHERE s.code = k.code AND s.in_scope = 1), "
+    "c.contract_name, c.source_hash FROM contracts k LEFT JOIN codes c ON c.id = k.code"
 )
 
 
@@ -41,7 +40,7 @@ class ContractInfo(BaseModel):
 
 class Event(BaseModel):
     signature: str
-    field: str
+    script: str
 
 
 class Dependency(BaseModel):
@@ -62,12 +61,6 @@ class CodeInfo(BaseModel):
     addresses: list[str]
 
 
-def address_of(value: str) -> str:
-    if not ADDRESS.match(value):
-        raise ValueError(f"{value} is not an address")
-    return value.lower()
-
-
 def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
     server = FastMCP("watcher", instructions=INSTRUCTIONS, log_level="WARNING")
     db_path, codes_dir = data_root / "watcher.db", data_root / "codes"
@@ -80,13 +73,10 @@ def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
         finally:
             handle.close()
 
-    def folder_of(contract_name: str | None, source_hash: str | None) -> Path | None:
-        return code_folder(codes_dir, contract_name, source_hash) if contract_name and source_hash else None
-
     def contract_info(row: tuple[Any, ...]) -> ContractInfo:
-        address, name, in_scope, origin, contract_name, source_hash = row
-        folder = folder_of(contract_name, source_hash)
-        return ContractInfo(address=address, name=name, in_scope=bool(in_scope), origin=origin, code_folder=str(folder) if folder else None)
+        address, name, in_scope, origin, code_in_scope, contract_name, source_hash = row
+        folder = str(code_folder(codes_dir, contract_name, source_hash, bool(code_in_scope))) if source_hash else None
+        return ContractInfo(address=address, name=name, in_scope=bool(in_scope), origin=origin, code_folder=folder)
 
     def registered(handle: sqlite3.Connection, address: str) -> tuple[Any, ...]:
         row = handle.execute(f"{CONTRACTS} WHERE k.address = ?", (address_of(address),)).fetchone()
@@ -106,8 +96,8 @@ def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
             Dependency(
                 name=name, slot=slot, kind=kind,
                 targets=[row[0] for row in handle.execute("SELECT address FROM dependency_targets WHERE dependency = ? ORDER BY address", (id_,))],
-                events=[Event(signature=s, field=f) for s, f in handle.execute(
-                    "SELECT signature, field FROM dependency_events WHERE dependency = ? ORDER BY signature", (id_,))],
+                events=[Event(signature=s, script=script) for s, script in handle.execute(
+                    "SELECT signature, script FROM dependency_events WHERE dependency = ? ORDER BY signature", (id_,))],
             )
             for id_, name, slot, kind in handle.execute(
                 "SELECT id, name, slot, kind FROM dependencies WHERE contract = ? ORDER BY name", (info.address,)).fetchall()
@@ -131,12 +121,12 @@ def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
         """List every unique verified code with its folder and the addresses that run it."""
         with connection() as handle:
             rows = handle.execute(
-                "SELECT c.contract_name, c.source_hash, group_concat(k.address) FROM codes c JOIN contracts k ON k.code = c.id "
+                "SELECT c.contract_name, c.source_hash, group_concat(k.address), max(k.in_scope) FROM codes c JOIN contracts k ON k.code = c.id "
                 "GROUP BY c.id ORDER BY c.contract_name"
             ).fetchall()
         return [
-            CodeInfo(contract_name=name, folder=str(code_folder(codes_dir, name, source_hash)), addresses=sorted(addresses.split(",")))
-            for name, source_hash, addresses in rows
+            CodeInfo(contract_name=name, folder=str(code_folder(codes_dir, name, source_hash, bool(in_scope))), addresses=sorted(addresses.split(",")))
+            for name, source_hash, addresses, in_scope in rows
         ]
 
     @server.tool()
@@ -194,22 +184,27 @@ def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
             return detail(handle, contract)
 
     @server.tool()
-    def add_dependency_event(contract: str, dependency: str, signature: str, field: str) -> ContractDetail:
-        """Record an event of the contract that changes the dependency. The signature is the canonical form,
-        for example TokenListed(address,uint256), and field is the name of the address parameter holding the new target."""
+    def add_dependency_event(contract: str, dependency: str, signature: str, script: str) -> ContractDetail:
+        """Record an event of the contract that changes the dependency, with a small Python script that interprets it.
+        The signature is the canonical form, for example PositionManagerUpdated(address,bool).
+        The script defines handle(event) and returns two lists: (added addresses, removed addresses).
+        event has address, signature, block, transaction, topics, data and args, the parameters decoded by name
+        (addresses lowercase, bytes as hex, tuples and arrays as lists). For example:
+            def handle(event):
+                if event["args"]["addPerms"]:
+                    return [event["args"]["positionManager"]], []
+                return [], [event["args"]["positionManager"]]
+        For a single dependency the added address replaces the target. Saving the same event again replaces its script."""
         with connection() as handle:
             id_, _ = dependency_of(handle, contract, dependency)
             *_, contract_name, source_hash = registered(handle, contract)
             if source_hash is None:
-                raise ValueError(f"{contract} has no verified source, its events cannot be checked")
+                raise ValueError(f"{contract} has no verified source, its events cannot be decoded")
             events = abi_events(abi_file(codes_dir, contract_name, source_hash))
             if signature not in events:
                 raise ValueError(f"{contract} has no event {signature}, its events are: {', '.join(sorted(events))}")
-            fields = [str(i["name"]) for i in events[signature] if i["type"] == "address"]
-            if field not in fields:
-                raise ValueError(f"{signature} has no address parameter {field}, its address parameters are: {', '.join(fields)}")
             with handle:
-                handle.execute("INSERT OR REPLACE INTO dependency_events VALUES (?, ?, ?)", (id_, signature, field))
+                handle.execute("INSERT OR REPLACE INTO dependency_events VALUES (?, ?, ?)", (id_, signature, script))
             return detail(handle, contract)
 
     @server.tool()
