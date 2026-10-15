@@ -1,0 +1,3 @@
+This is the first audit of this program. Everything in <codes> is in scope.
+
+You are an attacker. Your goal is to find security vulnerabilities in this codebase. Spawn 5 subagents that also search for bugs. Give all of them different focus areas. All should in general search for bugs but in specific parts of the codebase you assign to them, but they can read the whole codebase as context. You search for bugs in the whole system. No agent should stop after one bug. If you found one continue and hunt for the next one. At the end the divided focus areas should together cover all of the codebase. Overlapping is ok, leaving a part out is not.

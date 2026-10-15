@@ -11,7 +11,8 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from . import db
-from .db import address_of
+from .compare import compare
+from .db import ADDRESS_PATTERN, address_of
 from .codes import abi_events, abi_file, code_folder, register
 from .env import REPO_ROOT, etherscan_key, load_env
 from .etherscan import Etherscan
@@ -24,10 +25,18 @@ INSTRUCTIONS = (
     "Then record dependencies with add_dependency, further list targets with add_dependency_target "
     "and the events that change a dependency with add_dependency_event."
 )
+READ_ONLY_INSTRUCTIONS = (
+    "Read-only view of the dependency map of one bug bounty program: list_contracts, get_contract and list_codes "
+    "show every contract, its dependencies and the folder of its cloned code, compare_codes shows how two codes really differ. "
+    "Contracts are identified by addresses."
+)
 CONTRACTS = (
     "SELECT k.address, k.name, k.in_scope, k.origin, EXISTS (SELECT 1 FROM contracts s WHERE s.code = k.code AND s.in_scope = 1), "
     "c.contract_name, c.source_hash FROM contracts k LEFT JOIN codes c ON c.id = k.code"
 )
+
+
+WRITE_TOOLS = ("add_contract", "add_dependency", "add_dependency_target", "add_dependency_event", "remove_dependency")
 
 
 class ContractInfo(BaseModel):
@@ -61,8 +70,8 @@ class CodeInfo(BaseModel):
     addresses: list[str]
 
 
-def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
-    server = FastMCP("watcher", instructions=INSTRUCTIONS, log_level="WARNING")
+def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc, read_only: bool = False) -> FastMCP:
+    server = FastMCP("watcher", instructions=READ_ONLY_INSTRUCTIONS if read_only else INSTRUCTIONS, log_level="WARNING")
     db_path, codes_dir = data_root / "watcher.db", data_root / "codes"
 
     @contextmanager
@@ -128,6 +137,27 @@ def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
             CodeInfo(contract_name=name, folder=str(code_folder(codes_dir, name, source_hash, bool(in_scope))), addresses=sorted(addresses.split(",")))
             for name, source_hash, addresses, in_scope in rows
         ]
+
+    @server.tool()
+    def compare_codes(first: str, second: str) -> str:
+        """Show how two codes really differ: a diff that ignores comments and whitespace. Flattened sources are compared file by file,
+        so the result names the original files that changed. Each argument is a contract address or a code folder such as
+        MarketManagerIsolated-9b869873."""
+        with connection() as handle:
+            return compare(code_path(handle, first), code_path(handle, second))
+
+    def code_path(handle: sqlite3.Connection, value: str) -> Path:
+        in_scope = "EXISTS (SELECT 1 FROM contracts s WHERE s.code = c.id AND s.in_scope = 1)"
+        if ADDRESS_PATTERN.match(value):
+            row = handle.execute(f"SELECT c.contract_name, c.source_hash, {in_scope} FROM contracts k JOIN codes c ON c.id = k.code WHERE k.address = ?",
+                                 (value.lower(),)).fetchone()
+        else:
+            name, _, prefix = Path(value).name.rpartition("-")
+            row = handle.execute(f"SELECT c.contract_name, c.source_hash, {in_scope} FROM codes c WHERE c.contract_name = ? AND substr(c.source_hash, 1, 8) = ?",
+                                 (name, prefix)).fetchone()
+        if row is None:
+            raise ValueError(f"{value} is neither a contract with verified source nor a code folder")
+        return code_folder(codes_dir, row[0], row[1], bool(row[2]))
 
     @server.tool()
     def add_contract(address: str, name: str) -> ContractInfo:
@@ -216,16 +246,19 @@ def create_server(data_root: Path, etherscan: Etherscan, rpc: Rpc) -> FastMCP:
                 handle.execute("DELETE FROM dependencies WHERE id = ?", (id_,))
             return detail(handle, contract)
 
+    if read_only:
+        for name in WRITE_TOOLS:
+            server.remove_tool(name)
     return server
 
 
-def write_mcp_config(data_root: Path) -> Path:
+def write_mcp_config(data_root: Path, read_only: bool = False) -> Path:
     server = {
         "command": sys.executable,
-        "args": ["-m", "watcher.mcp_server", "--data-root", str(data_root)],
+        "args": ["-m", "watcher.mcp_server", "--data-root", str(data_root), *(["--read-only"] if read_only else [])],
         "env": {"PYTHONPATH": str(REPO_ROOT)},
     }
-    path = data_root / "mcp.json"
+    path = data_root / ("mcp-audit.json" if read_only else "mcp.json")
     path.write_text(json.dumps({"mcpServers": {"watcher": server}}, indent=2) + "\n")
     return path
 
@@ -233,13 +266,15 @@ def write_mcp_config(data_root: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="watcher.mcp_server", description="MCP server for the dependency map of one program")
     parser.add_argument("--data-root", required=True)
-    data_root = Path(parser.parse_args().data_root).resolve()
+    parser.add_argument("--read-only", action="store_true", help="only offer the tools that read the map")
+    args = parser.parse_args()
+    data_root = Path(args.data_root).resolve()
     if not (data_root / "watcher.db").exists():
-        raise SystemExit(f"{data_root / 'watcher.db'} does not exist; run init first")
+        raise SystemExit(f"{data_root / 'watcher.db'} does not exist; start the watcher first")
     scope = load_scope(data_root / "scope.json")
     env = load_env()
     etherscan = Etherscan(etherscan_key(env), CHAIN_IDS[scope.chain])
-    create_server(data_root, etherscan, Rpc(alchemy_url(env, scope.chain))).run("stdio")
+    create_server(data_root, etherscan, Rpc(alchemy_url(env, scope.chain)), args.read_only).run("stdio")
 
 
 if __name__ == "__main__":

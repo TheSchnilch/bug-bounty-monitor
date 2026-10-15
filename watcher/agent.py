@@ -18,13 +18,14 @@ def transcript_exists(session: str) -> bool:
     return any(home.glob(f"projects/*/{session}.jsonl"))
 
 
-def run_agent(prompt: str, data_root: Path, mcp_config: Path, claude: str = "claude", backoff: tuple[int, ...] = BACKOFF) -> dict[str, Any]:
+def run_agent(prompt: str, data_root: Path, mcp_config: Path, claude: str = "claude", backoff: tuple[int, ...] = BACKOFF,
+              effort: str = EFFORT) -> dict[str, Any]:
     env = {key: value for key, value in os.environ.items() if not key.startswith("WATCHER_")}
     session = str(uuid.uuid4())
     failures = 0
     while True:
         started = transcript_exists(session)
-        command = [claude, "-p", "--model", MODEL, "--effort", EFFORT, "--mcp-config", str(mcp_config),
+        command = [claude, "-p", "--model", MODEL, "--effort", effort, "--mcp-config", str(mcp_config),
                    "--dangerously-skip-permissions", "--output-format", "json", "--resume" if started else "--session-id", session]
         process = subprocess.run(command, input=CONTINUE if started else prompt, capture_output=True, text=True, cwd=data_root, env=env)
         try:

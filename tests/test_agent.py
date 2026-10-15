@@ -59,6 +59,11 @@ class AgentTest(unittest.TestCase):
                                         "--dangerously-skip-permissions", "--output-format", "json", "--session-id", result["session_id"]])
         self.assertEqual((call["prompt"], call["cwd"], call["env"]), ("the prompt", str(self.root), []))
 
+    def test_the_effort_can_be_raised(self) -> None:
+        with mock.patch("sys.stderr"):
+            run_agent("audit", self.root, self.root / "mcp.json", str(self.claude), backoff=(0,), effort="xhigh")
+        self.assertEqual(self.calls()[0]["args"][3:5], ["--effort", "xhigh"])
+
     def test_a_stopped_run_is_resumed_until_it_finishes(self) -> None:
         (self.root / "failures").write_text("2")
         result = self.run_agent()

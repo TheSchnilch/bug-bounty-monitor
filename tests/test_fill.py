@@ -94,8 +94,11 @@ class FillTest(unittest.TestCase):
         shared = self.connection.execute("SELECT count(DISTINCT code) FROM contracts WHERE address IN (?, ?)", (CTOKEN_A, CTOKEN_B)).fetchone()[0]
         self.assertEqual(shared, 1)
 
-        scope = load_scope(self.write_scope([{"name": "cToken A (USDC)", "address": CTOKEN_A}, {"name": "Market Manager", "address": MARKET}]))
-        fill(self.connection, scope, self.etherscan)
+        scope = load_scope(self.write_scope([{"name": "cToken A (USDC)", "address": CTOKEN_A}, {"name": "Market Manager", "address": MARKET},
+                                             {"name": "Unverified", "address": UNVERIFIED}]))
+        requests = len(self.requests)
+        self.assertEqual(fill(self.connection, scope, Etherscan("key", 143, self.url, min_interval=0, attempts=1)), [UNVERIFIED])
+        self.assertEqual(self.requests[requests:], [UNVERIFIED])
         self.assertEqual(len(self.rows()), 5)
         self.assertEqual(self.connection.execute("SELECT name FROM contracts WHERE address = ?", (CTOKEN_A,)).fetchone()[0], "cToken A (USDC)")
         self.assertEqual(self.connection.execute("SELECT count(*) FROM codes").fetchone()[0], 3)

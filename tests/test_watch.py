@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 import threading
 import unittest
@@ -6,10 +7,12 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 from watcher import db
 from watcher.codes import clone_codes, register
 from watcher.etherscan import Etherscan
+from watcher.main import cycle
 from watcher.rpc import Rpc
 from watcher.watch import Watch, topic
 
@@ -111,7 +114,8 @@ class WatchTest(unittest.TestCase):
         return [log for log in self.logs if log["address"] == address and log["topics"][0] == topic0 and start <= int(log["blockNumber"], 16) <= end]
 
     def log(self, block: int, signature: str, topics: list[str], data: str = "0x") -> None:
-        self.logs.append({"address": MARKET, "blockNumber": hex(block), "logIndex": "0x0", "topics": [topic(signature), *topics], "data": data})
+        self.logs.append({"address": MARKET, "blockNumber": hex(block), "logIndex": "0x0", "transactionHash": f"0x{block:064x}",
+                          "topics": [topic(signature), *topics], "data": data})
 
     def watch(self) -> tuple[int, list[str]]:
         return Watch(self.connection, self.rpc_client, self.etherscan, self.root / "codes").run()
@@ -168,6 +172,93 @@ class WatchTest(unittest.TestCase):
 
         self.head = 112
         self.assertEqual(self.watch(), (100, [f"{MARKET} cTokens: added {ORACLE} in block 99", f"{broken} 99: ValueError: boom"]))
+
+    def test_cycles_audit_first_everything_then_the_changes(self) -> None:
+        (self.root / "scope.json").write_text(json.dumps({"program": "curvance", "chain": "monad", "contracts": [{"name": "Market Manager", "address": MARKET}]}))
+        audits: list[dict[str, Any]] = []
+
+        def audit_agent(prompt: str, data_root: Path, mcp_config: Path, **options: Any) -> dict[str, Any]:
+            contracts = [row[0] for row in db.connect(data_root / "watcher.db").execute("SELECT address FROM contracts")]
+            audits.append({"prompt": prompt, "config": json.loads(mcp_config.read_text()), "options": options, "contracts": contracts})
+            if len(audits) == 2:
+                findings = max((data_root / "audits").iterdir()) / "findings"
+                for name in ("high-drain.md", "low-rounding.md", "low-dust.md"):
+                    (findings / name).write_text("finding")
+            return {"result": "no findings", "session_id": "s", "total_cost_usd": 1.5, "duration_ms": 180000}
+
+        messages: list[tuple[dict[str, Any], list[Path]]] = []
+
+        def run_cycle() -> None:
+            with mock.patch("watcher.main.Etherscan", return_value=self.etherscan), mock.patch("watcher.main.Rpc", return_value=self.rpc_client), \
+                 mock.patch("watcher.audit.run_agent", side_effect=audit_agent), mock.patch("watcher.main.say"), \
+                 mock.patch("watcher.main.send", side_effect=lambda env, message, files=(): messages.append((message, list(files)))):
+                cycle(self.root, {"WATCHER_ETHERSCAN_API_KEY": "key", "WATCHER_ALCHEMY_API_KEY": "key"})
+
+        run_cycle()
+        [first] = audits
+        self.assertIn(f"This is the first audit of this program. Everything in {self.root / 'codes'} is in scope.", first["prompt"])
+        self.assertNotIn("changed since the last audit", first["prompt"])
+        self.assertEqual(first["options"], {"effort": "xhigh"})
+        self.assertIn("--read-only", first["config"]["mcpServers"]["watcher"]["args"])
+        self.head = 101
+        run_cycle()
+        self.assertEqual(len(audits), 1)
+
+        self.storage[(MARKET, "0x5")] = word(ORACLE_V2)
+        self.log(95, MANAGER_UPDATED, [], "0x" + word(MANAGER)[2:] + "0" * 63 + "1")
+        self.log(96, MANAGER_UPDATED, [], "0x" + word(MANAGER)[2:] + "0" * 64)
+        self.log(97, TOKEN_LISTED, [word(CTOKEN)])
+        self.head = 110
+        run_cycle()
+        second = audits[1]["prompt"]
+        folder = next(path for path in (self.root / "audits").iterdir() if path.name.endswith("block98"))
+        self.assertNotIn("first audit", second)
+        self.assertNotIn("Spawn 5 subagents", second)
+        changes = second[second.index("1. "):second.index("For every change find everything it impacts")].strip().splitlines()
+        oracle_code = next(path for path in (self.root / "dependencies").iterdir() if path.name.startswith("OracleManagerV2-"))
+        manager, dependencies = f"Market Manager ({MARKET})", self.root / "dependencies"
+        self.assertEqual(changes[:3] + changes[4:7], [
+            f"1. Storage slot 0x5 of {manager} changed, seen in block 98.",
+            f"   - oracleManager of {manager} now points to OracleManagerV2 ({ORACLE_V2}) instead of Oracle Manager ({ORACLE}). "
+            f"Its code: {oracle_code}. What changed in the code, without comments and whitespace: {folder / 'diff-1.diff'}",
+            f"2. PositionManagerUpdated(positionManager={MANAGER}, add=true) was emitted by {manager} in block 95 (transaction 0x{95:064x}).",
+            f"3. PositionManagerUpdated(positionManager={MANAGER}, add=false) was emitted by {manager} in block 96 (transaction 0x{96:064x}).",
+            f"   - positionManagers of {manager} no longer contains PositionManager ({MANAGER})",
+            f"4. TokenListed(cToken={CTOKEN}) was emitted by {manager} in block 97 (transaction 0x{97:064x}).",
+        ])
+        self.assertRegex(changes[3], rf"^   - positionManagers of {re.escape(manager)} now also contains PositionManager \({MANAGER}\)\. "
+                                     rf"Its code: {re.escape(str(dependencies))}/PositionManager-[0-9a-f]{{8}}$")
+        self.assertRegex(changes[7], rf"^   - cTokens of {re.escape(manager)} now also contains BorrowableCToken \({CTOKEN}\)\. "
+                                     rf"Its code: {re.escape(str(dependencies))}/BorrowableCToken-[0-9a-f]{{8}}$")
+        self.assertEqual(len(changes), 8)
+        diff = (folder / "diff-1.diff").read_text()
+        self.assertIn("-contract OracleManager {}", diff)
+        self.assertIn("+contract OracleManagerV2 {}", diff)
+        self.assertNotIn(MANAGER, audits[1]["contracts"])
+        self.assertEqual(sorted(path.name for path in folder.iterdir()), ["diff-1.diff", "findings", "prompt.md", "result.json"])
+
+        self.assertEqual([message["title"] for message, _ in messages], [
+            "curvance: audit started", "curvance: audit finished, 0 findings", "curvance: 4 dependency changes",
+            "curvance: audit started", "curvance: audit finished, 3 findings",
+        ])
+        self.assertEqual(messages[0][0]["description"], "First audit of everything in scope")
+        changes, diffs = messages[2]
+        self.assertEqual(diffs, [folder / "diff-1.diff"])
+        link = lambda address: f"[{address[:6]}…{address[-4:]}](https://monadscan.com/address/{address})"
+        lines = changes["description"].splitlines()
+        self.assertEqual(lines[:3], [
+            f"**1.** Storage slot 0x5 of Market Manager ({link(MARKET)}) changed, seen in block 98",
+            f"• oracleManager of Market Manager ({link(MARKET)}) now points to OracleManagerV2 ({link(ORACLE_V2)}) instead of Oracle Manager ({link(ORACLE)})",
+            f"**2.** PositionManagerUpdated(positionManager={link(MANAGER)}, add=true) was emitted by Market Manager ({link(MARKET)}) in block 95 "
+            f"(transaction [0x00000000…](https://monadscan.com/tx/0x{95:064x}))",
+        ])
+        self.assertEqual(lines[-1], "1 code diff attached")
+        self.assertEqual(messages[3][0]["description"], "4 dependency changes")
+        finished = messages[4][0]
+        self.assertEqual(finished["color"], 0xE74C3C)
+        self.assertEqual(finished["description"], "• high-drain.md\n• low-dust.md\n• low-rounding.md")
+        self.assertEqual([(field["name"], field["value"]) for field in finished["fields"]],
+                         [("High", "1"), ("Low", "2"), ("Duration", "3 min"), ("Cost", "$1.50")])
 
 
 if __name__ == "__main__":

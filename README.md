@@ -8,10 +8,11 @@ Second version, built from scratch. The first version lives in `archive/` as ref
 python3 -m watcher --data-root data/curvance
 ```
 
-Runs a cycle every 5 minutes: first it syncs `<data-root>/watcher.db` (SQLite) with
-`<data-root>/scope.json`, then it checks the chain for changes. Needs `WATCHER_ETHERSCAN_API_KEY` and
+Runs a cycle every 5 minutes: it syncs `<data-root>/watcher.db` (SQLite) with `<data-root>/scope.json`,
+checks the chain for changes, prunes what the changes left unreachable and, when something changed,
+runs an audit. Agents run inside the cycle, so the watcher waits for them. Needs `WATCHER_ETHERSCAN_API_KEY` and
 `WATCHER_ALCHEMY_API_KEY` in `.env` and `pip install -r requirements.txt`. A failed cycle is printed
-and retried in the next one.
+and retried in the next one; any error in a cycle is caught, so the watcher keeps running.
 
 ### Sync
 
@@ -85,15 +86,38 @@ tuples and arrays as lists, hashed indexed parameters as the raw topic). The scr
 Python process (`-I`, 30 second timeout, no `WATCHER_*` variables), with the event as JSON on stdin.
 Scripts are stored in `dependency_events` and have no chain access.
 
-Every change is printed, and every cycle ends with a line like
-`checked up to block 123: 18 contracts (12 in scope, 6 dependencies), 38 dependency links, 0 changes`. Contracts that are no longer
-targeted are pruned in the next cycle.
+Every change is printed, and every cycle prints a line like
+`checked up to block 123: 18 contracts (12 in scope, 6 dependencies), 38 dependency links, 0 changes`.
+
+### Audit
+
+Before the cycle prunes, every change is described for the audit: updated targets (a single
+dependency replaced through its slot or an event) with the old and new contract and a diff of the
+old code folder against the new one, added targets with their code folder, and removed targets.
+Then the cycle prunes, so the audit never sees contracts that are no longer used.
+
+If any target was updated, added or removed, or if `<data-root>/audits` holds no finished audit
+yet, the audit runs: `claude-opus-5-5` with effort `xhigh`, prompt from `AUDIT_PROMPT.md`, read-only
+watcher MCP server (`mcp-audit.json`), full tool access and the same auto resume as the dependency
+agent. The first audit is told that everything in `codes/` is in scope. Each audit gets its own
+folder `<data-root>/audits/<time>-block<block>/` with `prompt.md`, the diffs, `findings/` (one file
+per finding, written by the audit) and `result.json` once it finished.
+
+### Notifications
+
+With `WATCHER_DISCORD_WEBHOOK` in `.env`, the watcher posts to that Discord webhook when dependencies
+change (each updated, added or removed target), when an audit starts, and when it finishes, with
+its duration, cost and the number of findings per severity (taken from the finding file names,
+`<severity>-<title>.md`). A failed cycle is reported with its error and the end of its traceback, once per
+distinct error, and a message follows when cycles work again. Values of `WATCHER_*` variables are
+removed from error texts. A failed post is printed and never stops the cycle.
 
 ### MCP server
 
 The watcher writes `<data-root>/mcp.json` for the dependency agent. Passing it to Claude (`claude --mcp-config <data-root>/mcp.json`)
 makes Claude start the watcher's MCP server (`python -m watcher.mcp_server --data-root …`) over stdio
-for that run. The server takes the chain from `scope.json` and the keys from `.env`
+for that run. The audit gets `<data-root>/mcp-audit.json`, which starts the server with `--read-only`:
+only `list_contracts`, `get_contract`, `list_codes` and `compare_codes`. The server takes the chain from `scope.json` and the keys from `.env`
 (`WATCHER_ETHERSCAN_API_KEY`, `WATCHER_ALCHEMY_API_KEY`), so Claude never sees them.
 
 | Tool | Does |
@@ -101,6 +125,7 @@ for that run. The server takes the chain from `scope.json` and the keys from `.e
 | `list_contracts` | Every contract with name, scope flag, origin and code folder |
 | `get_contract` | One contract with its dependencies, their targets and events |
 | `list_codes` | Every unique code with its folder and addresses |
+| `compare_codes` | Diff of two codes (contract address or code folder) without comments and whitespace; flattened sources are compared per original file |
 | `add_contract` | Registers a contract (`origin = 'agent'`, `in_scope = 0`) after checking on-chain that code is deployed, and clones its verified source |
 | `add_dependency` | Adds a `single` (exactly one target) or `list` dependency; targets must be registered first. A slot is only allowed for `single` and must hold the target on-chain now |
 | `add_dependency_target` | Adds a registered contract to a `list` dependency |

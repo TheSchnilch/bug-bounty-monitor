@@ -147,6 +147,23 @@ class McpServerTest(unittest.IsolatedAsyncioTestCase):
             await self.call("add_dependency_event", contract=UNVERIFIED, dependency="tokens", signature="A(address)", script=script)
 
 
+    async def test_compare_codes_by_address_or_folder(self) -> None:
+        oracle = await self.call("add_contract", address=ORACLE, name="Oracle Manager")
+        text = await self.call("compare_codes", first=MARKET, second=Path(oracle["code_folder"]).name)
+        self.assertIn("0 files are identical apart from comments and whitespace, 1 files differ", text)
+        self.assertIn("-contract MarketManagerIsolated {}\n+contract OracleManager {}", text)
+        self.assertIn("1 files are identical", await self.call("compare_codes", first=MARKET, second=MARKET))
+        with self.assertRaisesRegex(ValueError, "neither a contract with verified source nor a code folder"):
+            await self.call("compare_codes", first=MARKET, second="Missing-12345678")
+
+    async def test_read_only_server_offers_only_the_read_tools(self) -> None:
+        server = create_server(self.root, self.etherscan, Rpc("http://127.0.0.1:1"), read_only=True)
+        async with create_connected_server_and_client_session(server) as client:
+            names = sorted(tool.name for tool in (await client.list_tools()).tools)
+        self.assertEqual(names, ["compare_codes", "get_contract", "list_codes", "list_contracts"])
+        self.assertNotIn("add_", server.instructions or "")
+
+
 class McpConfigTest(unittest.TestCase):
     def test_config_starts_the_server_module_for_the_data_root(self) -> None:
         root = Path(tempfile.mkdtemp())
@@ -156,6 +173,9 @@ class McpConfigTest(unittest.TestCase):
             "args": ["-m", "watcher.mcp_server", "--data-root", str(root)],
             "env": {"PYTHONPATH": str(REPO_ROOT)},
         }}})
+        audit = write_mcp_config(root, read_only=True)
+        self.assertEqual(audit.name, "mcp-audit.json")
+        self.assertEqual(json.loads(audit.read_text())["mcpServers"]["watcher"]["args"], ["-m", "watcher.mcp_server", "--data-root", str(root), "--read-only"])
 
 
 if __name__ == "__main__":

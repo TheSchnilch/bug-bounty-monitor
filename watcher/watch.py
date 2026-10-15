@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
@@ -22,6 +23,21 @@ def word_address(word: str) -> str:
     return "0x" + word[-40:].lower()
 
 
+def event_call(signature: str, args: dict[str, Any]) -> str:
+    values = ", ".join(f"{name}={value if isinstance(value, str) else json.dumps(value)}" for name, value in args.items())
+    return f"{signature.split('(')[0]}({values})"
+
+
+class Change(NamedTuple):
+    kind: str
+    contract: str
+    dependency: str
+    old: str | None
+    new: str | None
+    block: int
+    cause: str
+
+
 class Handler(NamedTuple):
     id: int
     name: str
@@ -35,9 +51,12 @@ class Watch:
     def __init__(self, connection: sqlite3.Connection, rpc: Rpc, etherscan: Etherscan, codes_dir: Path) -> None:
         self.connection, self.rpc, self.etherscan, self.codes_dir = connection, rpc, etherscan, codes_dir
         self.changes: list[str] = []
+        self.updates: list[Change] = []
+        self.block = 0
 
     def run(self) -> tuple[int, list[str]]:
         end = int(self.rpc.call("eth_blockNumber"), 16) - CONFIRMATIONS
+        self.block = end
         row = self.connection.execute("SELECT block FROM state").fetchone()
         if row is not None and end <= row[0]:
             return row[0], []
@@ -73,6 +92,8 @@ class Watch:
                 self.connection.execute("DELETE FROM dependency_targets WHERE dependency = ?", (id_,))
                 self.connection.execute("INSERT INTO dependency_targets VALUES (?, ?, 'slot')", (id_, address))
             self.changes.append(f"{contract} {name}: {current} -> {address}")
+            self.updates.append(Change("updated", contract, name, current, address, self.block,
+                                       f"Storage slot {slot} of {contract} changed, seen in block {self.block}"))
 
     def events(self, start: int, end: int) -> None:
         watched: dict[str, dict[str, list[Handler]]] = defaultdict(lambda: defaultdict(list))
@@ -90,29 +111,36 @@ class Watch:
                 block = int(log["blockNumber"], 16)
                 for handler in topics[log["topics"][0]]:
                     try:
+                        args = decode(handler.inputs, log)
                         event = {"address": contract, "signature": handler.signature, "block": block, "transaction": log.get("transactionHash"),
-                                 "topics": log["topics"], "data": log["data"], "args": decode(handler.inputs, log)}
+                                 "topics": log["topics"], "data": log["data"], "args": args}
                         added, removed = run_script(handler.script, event)
                     except (RuntimeError, DecodingError) as exc:
                         self.changes.append(f"{contract} {handler.name}: script for {handler.signature} failed in block {block}: {exc}")
                         continue
-                    self.apply(contract, handler, added, removed, block, hex(end))
+                    cause = f"{event_call(handler.signature, args)} was emitted by {contract} in block {block} (transaction {log.get('transactionHash')})"
+                    self.apply(contract, handler, added, removed, block, hex(end), cause)
 
-    def apply(self, contract: str, handler: Handler, added: list[str], removed: list[str], block: int, tag: str) -> None:
+    def apply(self, contract: str, handler: Handler, added: list[str], removed: list[str], block: int, tag: str, cause: str) -> None:
         for address in removed:
             with self.connection:
                 gone = self.connection.execute("DELETE FROM dependency_targets WHERE dependency = ? AND address = ?", (handler.id, address)).rowcount
             if gone:
                 self.changes.append(f"{contract} {handler.name}: removed {address} in block {block}")
+                self.updates.append(Change("removed", contract, handler.name, address, None, block, cause))
         for address in added:
             if not self.ensure(address, "event", tag):
                 self.changes.append(f"{contract} {handler.name}: event added {address}, which is not a contract")
                 continue
             with self.connection:
-                replaced = 0
+                previous = [row[0] for row in self.connection.execute(
+                    "SELECT address FROM dependency_targets WHERE dependency = ? AND address != ?", (handler.id, address))]
                 if handler.kind == "single":
-                    replaced = self.connection.execute(
-                        "DELETE FROM dependency_targets WHERE dependency = ? AND address != ?", (handler.id, address)).rowcount
+                    self.connection.execute("DELETE FROM dependency_targets WHERE dependency = ? AND address != ?", (handler.id, address))
                 inserted = self.connection.execute("INSERT OR IGNORE INTO dependency_targets VALUES (?, ?, 'event')", (handler.id, address)).rowcount
-            if replaced or inserted:
-                self.changes.append(f"{contract} {handler.name}: {'set to' if handler.kind == 'single' else 'added'} {address} in block {block}")
+            if handler.kind == "single" and (previous or inserted):
+                self.changes.append(f"{contract} {handler.name}: set to {address} in block {block}")
+                self.updates.append(Change("updated", contract, handler.name, previous[0] if previous else None, address, block, cause))
+            elif inserted:
+                self.changes.append(f"{contract} {handler.name}: added {address} in block {block}")
+                self.updates.append(Change("added", contract, handler.name, None, address, block, cause))
