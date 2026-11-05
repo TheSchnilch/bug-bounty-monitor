@@ -1,78 +1,145 @@
-# Onchain Contract Watcher
+# watch-code
 
-Second version, built from scratch. The first version lives in `archive/` as reference only.
+Watches the smart contracts of a bug bounty program and everything they depend on, and has Claude
+audit every onchain change as soon as it happens.
 
-## Usage
+> **Status: prototype.** It has only been run end to end on one program, the Curvance bug bounty on
+> Monad (`data/curvance/scope.json`). Expect rough edges on any other scope.
+
+## The idea
+
+The end goal is a tool where you only define a scope, the contracts of a bug bounty program, and
+everything else happens automatically: it finds out which other contracts the scope depends on,
+keeps that map current while the protocol changes onchain, and audits each change the moment it
+happens.
+
+This repository is a working prototype of that loop. The scope is still a hand-written file, only
+two chains are configured, and some parts are deliberately simple (see [Limitations](#limitations)).
+
+## How it works
+
+Every 5 minutes the watcher runs one cycle:
+
+1. **Sync the scope.** Reads `scope.json`, fetches the verified source of every new contract from
+   Etherscan and clones it. Contracts with identical source share one folder. Contracts removed
+   from the scope are pruned together with everything only they depended on.
+2. **Map the dependencies.** When contracts are new in scope, a Claude Code agent reads their code
+   and records what each one depends on, through an MCP server the watcher provides: addresses in
+   storage slots (proxy implementations included), immutables, and lists such as all markets of a
+   manager. For every event that changes such a list, the agent writes a small Python script that
+   turns the event into added and removed addresses.
+3. **Watch the chain.** Reads every recorded slot, fetches the logs of every recorded event, runs
+   the scripts and updates the map. New contracts are registered and cloned, removed ones pruned.
+4. **Audit.** The first audit covers the whole scope. After that, every cycle with changes starts
+   an audit scoped to exactly those changes and everything they affect. It gets the onchain cause,
+   the effect on the dependency map, and a diff of replaced code that ignores comments and
+   whitespace:
+
+   ```
+   1. PermissionsUpdated(permissionsType=0x8ecd…, addressUpdated=0x3b08…, isAdded=true) was emitted
+      by CentralRegistry (0x1310…) in block 111657782 (transaction 0xf620…).
+      - Market managers of CentralRegistry (0x1310…) now also contains MarketManagerIsolated (0x3b08…).
+        Its code: …/codes/MarketManagerIsolated-a57778d6
+   2. Storage slot 0x8 of savUSD | USDC cUSDC (0x9891…) changed, seen in block 113660575.
+      - Interest rate model of savUSD | USDC cUSDC (0x9891…) now points to … instead of ….
+        What changed in the code, without comments and whitespace: …/diff-1.diff
+   ```
+
+5. **Notify.** Posts dependency changes (with the diffs attached), audit start and end (with
+   findings per severity) and failed cycles to a Discord webhook.
+
+## Requirements
+
+- Python 3.11 or newer
+- [Claude Code](https://docs.claude.com/en/docs/claude-code), installed and logged in. The agents run
+  as `claude -p` and use your Claude usage.
+- The `alchemy` and `etherscan` MCP servers configured in Claude Code (`claude mcp list`). The agents
+  use them for onchain lookups.
+- An [Etherscan API key](https://etherscan.io/apis) (V2). The free plan covers Ethereum and Monad, but
+  not BSC, Optimism or Base.
+- An [Alchemy](https://www.alchemy.com) API key with the scope's network enabled.
+- Optional: a Discord webhook for notifications, and [Foundry](https://getfoundry.sh) if audits should
+  build and run proofs of concept.
+
+## Setup
 
 ```sh
-python3 -m watcher --data-root data/curvance
+git clone <this repository> watch-code
+cd watch-code
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env    # then fill in the keys
 ```
 
-Runs a cycle every 5 minutes: it syncs `<data-root>/watcher.db` (SQLite) with `<data-root>/scope.json`,
-checks the chain for changes, prunes what the changes left unreachable and, when something changed,
-runs an audit. Agents run inside the cycle, so the watcher waits for them. Needs `WATCHER_ETHERSCAN_API_KEY` and
-`WATCHER_ALCHEMY_API_KEY` in `.env` and `pip install -r requirements.txt`. A failed cycle is printed
-and retried in the next one; any error in a cycle is caught, so the watcher keeps running.
+| Variable | Used for |
+| --- | --- |
+| `WATCHER_ETHERSCAN_API_KEY` | Verified source, ABIs and event logs |
+| `WATCHER_ALCHEMY_API_KEY` | Storage slots, contract code and block numbers |
+| `WATCHER_DISCORD_WEBHOOK` | Notifications (optional) |
 
-### Sync
+## Running
 
-`scope.json` lists the contracts in scope:
+```sh
+.venv/bin/python -m watcher --data-root data/curvance
+```
+
+Run it from the repository folder. It runs until stopped; on a server, start it with `nohup` or in
+`tmux`. Every cycle ends with a line like
+`checked up to block 113660575: 232 contracts (133 in scope, 99 dependencies), 425 dependency links, 0 changes`.
+
+The first cycle on a new scope does the expensive work: cloning, the dependency agent and the first
+audit. After that only changes cost anything.
+
+### Defining a scope
+
+Create `data/<program>/scope.json`:
 
 ```json
 {
   "program": "curvance",
   "chain": "monad",
-  "contracts": [{"name": "MarketManagerIsolated - WMON | AUSD MarketManager", "address": "0x05e7…1554"}]
+  "contracts": [
+    {"name": "MarketManagerIsolated - WMON | AUSD MarketManager", "address": "0x05e70717fA8BD0F21a9F826d093d99f6Da4f1554"}
+  ]
 }
 ```
 
-Every listed contract is stored with a lowercase address, `in_scope = 1` and `origin = 'manual'`. For
-each one the verified source is requested from the Etherscan V2 API (`chain` selects the chain ID,
-`ethereum` → 1, `monad` → 143) and its code identity (SHA-256 of the source files and the contract
-name) is stored in `codes`, so contracts with identical code share one row. Unverified contracts are
-stored without a code. All requests happen before one transaction, so a failed request writes
-nothing. Every cycle updates names and adds new contracts.
+`chain` is `ethereum` or `monad`. Adding a chain means adding it to `CHAIN_IDS`
+([watcher/scope.py](watcher/scope.py)), `ALCHEMY_NETWORKS` ([watcher/rpc.py](watcher/rpc.py)) and
+`EXPLORERS` ([watcher/notify.py](watcher/notify.py)). You can edit the file while the watcher runs;
+the next cycle picks up added and removed contracts.
 
-Contracts removed from `scope.json` are pruned in the same cycle: they get `in_scope = 0`, then
-everything that is no longer reachable from an in-scope contract (following dependency targets
-through any number of levels) is deleted with its dependencies, and codes without contracts are
-deleted with their folder and ABI. A removed contract that is still reachable stays as out-of-scope.
-An empty `scope.json` is refused.
+### Prompts
 
-Then every code is cloned once into `<data-root>/codes/<ContractName>-<first 8 hash characters>/`
-when an in-scope contract runs it, otherwise into `<data-root>/dependencies/…`, using the source of one
-of its addresses. When the scope changes, folders are moved between the two instead of cloned again. Existing folders are skipped, and a source that no longer
-matches its hash is refused.
+The agents' instructions are plain Markdown files in the repository root, so they can be tuned
+without touching code:
 
-Last, if at least one contract in `scope.json` was not in scope before, the dependency agent runs
-headless with the prompt rendered from `DEPENDENCY_PROMPT.md` (program, chain, chain ID, Alchemy
-network and every in-scope contract with its code folder): `claude -p --model claude-opus-5-5
---effort medium` in `<data-root>`, with the watcher MCP server from `mcp.json` and full tool access
-(`--dangerously-skip-permissions`). `WATCHER_*` variables are removed from its
-environment. The run gets a fixed session ID. If Claude stops before finishing (usage limit, crash or
-error result), the watcher waits 1, 5, 15 and then every 30 minutes and resumes that session with a
-continue message until it finishes. When it finishes, the watcher prints its answer, the session ID (continue it with
-`claude --resume <id>` from `<data-root>`) and the cost.
+| File | Used by |
+| --- | --- |
+| [DEPENDENCY_PROMPT.md](DEPENDENCY_PROMPT.md) | The dependency agent |
+| [AUDIT_PROMPT.md](AUDIT_PROMPT.md) | Every audit: program, folders, rules and report format |
+| [FIRST_AUDIT.md](FIRST_AUDIT.md) | The first audit of a program (whole scope, 5 subagents) |
+| [CHANGE_AUDIT.md](CHANGE_AUDIT.md) | Audits of changes (only the changes and their impact) |
 
-### Watch
+## Costs and safety
 
-After the sync, the watcher checks every block from the last checked one up to the chain head minus
-12 confirmations. The first cycle only records the current block as the start, there is no backfill.
+Read this before running it.
 
-- Slot dependencies: the slot is read at the end block. When it holds a new address, that contract is
-  registered (`origin = 'slot'`, source cloned) and replaces the target. A proxy implementation
-  recorded with its implementation slot is covered by this.
-- Event dependencies: Etherscan `getLogs` per owning contract and event (the Alchemy free tier only
-  allows 10 blocks per `eth_getLogs`). Every log is decoded with the ABI and passed to the event's
-  script, which returns the added and the removed addresses. Logs are processed in chain order, and
-  within one log removals come first. Removed addresses are dropped as targets. Added addresses are
-  registered (`origin = 'event'`) and added as targets; for a `single` dependency the added address
-  replaces the target. A script that fails is reported and that log is skipped.
+- **The agents have full access to the machine.** They run with `--dangerously-skip-permissions`, so
+  they can run any command and read any file your user can, including `.env`. Run the watcher on a
+  dedicated machine or user account.
+- **Event scripts are executed.** The scripts the dependency agent writes run in a separate Python
+  process with a 30 second timeout and without the `WATCHER_*` variables, but they are not sandboxed.
+- **Audits cost real money.** Measured on Curvance: mapping the dependencies of 12 contracts took
+  4 minutes and $1.71; the first audit of the full scope (133 contracts) took 46 minutes and $44 at
+  `xhigh` effort. Every cycle with changes starts another audit, and there is no daily limit.
+- **API usage.** For the Curvance scope a cycle makes about 100 Etherscan calls, roughly 30,000 a
+  day; the free plan allows 100,000.
 
 ### Event scripts
 
-The dependency agent gives every event a small Python script with a function `handle(event)` that
-returns `(added, removed)`, two lists of addresses:
+Every recorded event has a script with a function `handle(event)` that returns `(added, removed)`,
+two lists of addresses:
 
 ```python
 def handle(event):
@@ -81,76 +148,43 @@ def handle(event):
 ```
 
 `event` has `address`, `signature`, `block`, `transaction`, `topics`, `data` and `args`, the
-parameters decoded by name (unnamed ones as `arg0`, `arg1`, …; addresses lowercase, bytes as hex,
-tuples and arrays as lists, hashed indexed parameters as the raw topic). The script runs in its own
-Python process (`-I`, 30 second timeout, no `WATCHER_*` variables), with the event as JSON on stdin.
-Scripts are stored in `dependency_events` and have no chain access.
+parameters decoded with the ABI by name (unnamed ones as `arg0`, `arg1`, …; addresses lowercase,
+bytes as hex, tuples and arrays as lists, hashed indexed parameters as the raw topic). Logs are
+processed in chain order and, within one log, removals before additions, so an event that replaces
+one address with another works. For a `single` dependency the added address replaces the target. A
+failing script is reported and its log skipped.
 
-Every change is printed, and every cycle prints a line like
-`checked up to block 123: 18 contracts (12 in scope, 6 dependencies), 38 dependency links, 0 changes`.
+### Watcher MCP server
 
-### Audit
+The agents start it themselves from `mcp.json`. It reads the keys from `.env` itself, so they are not
+part of the agents' prompts or environment. The audits get a read-only version.
 
-Before the cycle prunes, every change is described for the audit: updated targets (a single
-dependency replaced through its slot or an event) with the old and new contract and a diff of the
-old code folder against the new one, added targets with their code folder, and removed targets.
-Then the cycle prunes, so the audit never sees contracts that are no longer used.
+| Tool | Does | Audit |
+| --- | --- | --- |
+| `list_contracts` | Every contract with name, scope flag, origin and code folder | yes |
+| `get_contract` | One contract with its dependencies, their targets and events | yes |
+| `list_codes` | Every unique code with its folder and addresses | yes |
+| `compare_codes` | Diff of two codes without comments and whitespace; flattened sources are compared per original file | yes |
+| `add_contract` | Registers a contract after checking onchain that code is deployed, and clones its verified source | |
+| `add_dependency` | Adds a `single` or `list` dependency; targets must be registered, a slot must hold the target onchain | |
+| `add_dependency_target` | Adds a registered contract to a `list` dependency | |
+| `add_dependency_event` | Adds an event with its script; the signature is checked against the ABI | |
+| `remove_dependency` | Deletes a dependency with its targets and events | |
 
-If any target was updated, added or removed, or if `<data-root>/audits` holds no finished audit
-yet, the audit runs: `claude-opus-5-5` with effort `xhigh`, prompt from `AUDIT_PROMPT.md`, read-only
-watcher MCP server (`mcp-audit.json`), full tool access and the same auto resume as the dependency
-agent. The first audit is told that everything in `codes/` is in scope. Each audit gets its own
-folder `<data-root>/audits/<time>-block<block>/` with `prompt.md`, the diffs, `findings/` (one file
-per finding, written by the audit) and `result.json` once it finished.
-
-### Notifications
-
-With `WATCHER_DISCORD_WEBHOOK` in `.env`, the watcher posts to that Discord webhook when dependencies
-change (each updated, added or removed target), when an audit starts, and when it finishes, with
-its duration, cost and the number of findings per severity (taken from the finding file names,
-`<severity>-<title>.md`). A failed cycle is reported with its error and the end of its traceback, once per
-distinct error, and a message follows when cycles work again. Values of `WATCHER_*` variables are
-removed from error texts. A failed post is printed and never stops the cycle.
-
-### MCP server
-
-The watcher writes `<data-root>/mcp.json` for the dependency agent. Passing it to Claude (`claude --mcp-config <data-root>/mcp.json`)
-makes Claude start the watcher's MCP server (`python -m watcher.mcp_server --data-root …`) over stdio
-for that run. The audit gets `<data-root>/mcp-audit.json`, which starts the server with `--read-only`:
-only `list_contracts`, `get_contract`, `list_codes` and `compare_codes`. The server takes the chain from `scope.json` and the keys from `.env`
-(`WATCHER_ETHERSCAN_API_KEY`, `WATCHER_ALCHEMY_API_KEY`), so Claude never sees them.
-
-| Tool | Does |
-| --- | --- |
-| `list_contracts` | Every contract with name, scope flag, origin and code folder |
-| `get_contract` | One contract with its dependencies, their targets and events |
-| `list_codes` | Every unique code with its folder and addresses |
-| `compare_codes` | Diff of two codes (contract address or code folder) without comments and whitespace; flattened sources are compared per original file |
-| `add_contract` | Registers a contract (`origin = 'agent'`, `in_scope = 0`) after checking on-chain that code is deployed, and clones its verified source |
-| `add_dependency` | Adds a `single` (exactly one target) or `list` dependency; targets must be registered first. A slot is only allowed for `single` and must hold the target on-chain now |
-| `add_dependency_target` | Adds a registered contract to a `list` dependency |
-| `add_dependency_event` | Adds an event of the contract that changes the dependency with its script; the canonical signature is checked against the contract's ABI. Saving it again replaces the script |
-| `remove_dependency` | Deletes a dependency with its targets and events |
-
-The ABI of every code from Etherscan is saved as `<data-root>/abis/<ContractName>-<first 8 hash characters>.json`.
-
-## Database
+### Database
 
 | Table | Content |
 | --- | --- |
-| `codes` | One row per unique code: `source_hash` (SHA-256 of the verified source files and contract name), `contract_name` |
-| `contracts` | Every contract once, keyed by lowercase address: `name`, `in_scope`, `origin` (`manual`, `agent`, `event`, `slot`), `code` (link to `codes`, empty while unknown or unverified) |
-| `dependencies` | Owned by one contract: `name` (unique per contract), optional `slot`, `kind` (`single` or `list`) |
-| `dependency_targets` | The contracts a dependency points to; targets must be registered contracts |
-| `dependency_events` | Events that update a dependency: `signature` and the `script` that interprets them |
-| `state` | One row with the last checked `block` |
+| `codes` | One row per unique code: `source_hash`, `contract_name` |
+| `contracts` | Every contract by lowercase address: `name`, `in_scope`, `origin` (`manual`, `agent`, `event`, `slot`), `code` |
+| `dependencies` | Owned by one contract: `name`, optional `slot`, `kind` (`single` or `list`) |
+| `dependency_targets` | The contracts a dependency points to |
+| `dependency_events` | Events that update a dependency: `signature` and its `script` |
+| `state` | The last checked block |
 
-A dependency without `slot` is a fixed link (for example an immutable). Foreign keys are enforced,
-and deleting a dependency removes its targets and events.
+Pruning keeps every contract reachable from the scope through dependency targets, at any depth, and
+deletes the rest with its code folders.
 
-## Tests
+## License
 
-```sh
-python3 -m unittest discover tests -v
-npx pyright
-```
+[MIT](LICENSE)

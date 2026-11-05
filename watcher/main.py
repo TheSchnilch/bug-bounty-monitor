@@ -10,7 +10,7 @@ from .audit import EFFORT as AUDIT_EFFORT
 from .audit import audit_prompt, audited, describe, findings, findings_text, run_audit, summary, task
 from .codes import clone_codes, remove_codes
 from .env import etherscan_key, load_env
-from .etherscan import Etherscan
+from .etherscan import Code, Etherscan
 from .mcp_server import write_mcp_config
 from .notify import audit_finished_embed, audit_started_embed, changes_embed, cycle_failed_embed, cycle_recovered_embed, redacted, send
 from .prompt import dependency_prompt
@@ -22,9 +22,20 @@ INTERVAL = 300
 
 
 def fill(connection: sqlite3.Connection, scope: Scope, etherscan: Etherscan) -> list[str]:
-    known = {row[0] for row in connection.execute("SELECT address FROM contracts WHERE code IS NOT NULL")}
-    addresses = [(contract.address.lower(), contract.name) for contract in scope.contracts]
-    fetched = [(address, name, None if address in known else etherscan.code(address)) for address, name in addresses]
+    stored: dict[str, bool] = {address: bool(verified) for address, verified in connection.execute("SELECT address, code IS NOT NULL FROM contracts")}
+    known = {address for address, verified in stored.items() if verified}
+    fetched: list[tuple[str, str, Code | None]] = []
+    for contract in scope.contracts:
+        address = contract.address.lower()
+        code = None
+        if address not in stored:
+            code = etherscan.code(address)
+        elif address not in known:
+            try:
+                code = etherscan.code(address)
+            except RuntimeError as exc:
+                say(f"source of the unverified {address} not checked, trying again next cycle: {exc}")
+        fetched.append((address, contract.name, code))
     with connection:
         for address, name, code in fetched:
             db.save_contract(connection, address, name, code)

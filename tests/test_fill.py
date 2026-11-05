@@ -187,6 +187,18 @@ class FillTest(unittest.TestCase):
             clone_codes(self.connection, Etherscan("key", 143, self.url, min_interval=0, attempts=1), self.root / "codes")
         self.assertEqual(list((self.root / "codes").iterdir()) if (self.root / "codes").exists() else [], [])
 
+    def test_a_failed_retry_of_an_unverified_contract_does_not_fail_the_fill(self) -> None:
+        fill(self.connection, load_scope(self.write_scope([{"name": "Unverified", "address": UNVERIFIED}, {"name": "Market Manager", "address": MARKET}])), self.etherscan)
+        self.fail_requests = True
+        scope = load_scope(self.write_scope([{"name": "Unverified (renamed)", "address": UNVERIFIED}, {"name": "Market Manager", "address": MARKET}]))
+        with mock.patch("watcher.main.say") as say:
+            self.assertEqual(fill(self.connection, scope, Etherscan("key", 143, self.url, min_interval=0, attempts=1)), [UNVERIFIED])
+        self.assertIn(f"source of the unverified {UNVERIFIED} not checked, trying again next cycle", say.call_args.args[0])
+        self.assertEqual(self.connection.execute("SELECT name FROM contracts WHERE address = ?", (UNVERIFIED,)).fetchone(), ("Unverified (renamed)",))
+        scope = load_scope(self.write_scope([{"name": "Unverified", "address": UNVERIFIED}, {"name": "cToken A", "address": CTOKEN_A}]))
+        with self.assertRaises(RuntimeError), mock.patch("watcher.main.say"):
+            fill(self.connection, scope, Etherscan("key", 143, self.url, min_interval=0, attempts=1))
+
     def test_a_failed_request_writes_nothing(self) -> None:
         scope = load_scope(self.write_scope([{"name": "Market Manager", "address": MARKET}]))
         self.fail_requests = True
